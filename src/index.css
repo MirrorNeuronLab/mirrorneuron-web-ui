@@ -1,0 +1,11 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: ui-monospace, Consolas, monospace;
+}
+
+body {
+  background-color: #f8fafc; /* Tailwind slate-50 */
+  color: #0f172a; /* Tailwind slate-900 */
+}
