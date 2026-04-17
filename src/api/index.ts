@@ -1,69 +1,109 @@
 import api from './client';
+import { z } from 'zod';
 
-export interface SystemSummary {
-  nodes: {
-    name: string;
-    connected_nodes: string[];
-    self?: boolean;
-    executor_pools: Record<string, {
-      capacity: number;
-      available: number;
-      in_use: number;
-      queued: number;
-      active: number;
-    }>;
-  }[];
-  jobs: {
-    job_id: string;
-    status: string;
-  }[];
-}
+export const AgentSchema = z.object({
+  agent_id: z.string().optional().default('unknown'),
+  agent_type: z.string().optional().default('unknown'),
+  type: z.string().optional().default('unknown'),
+  assigned_node: z.string().optional().default('unassigned'),
+  status: z.string().optional().default('unknown'),
+  running: z.boolean().optional(),
+  processed_messages: z.number().optional().default(0),
+  mailbox_depth: z.number().optional().default(0),
+  paused: z.boolean().optional(),
+  metadata: z.object({
+    outbound_edges: z.array(z.string()).optional(),
+  }).optional(),
+}).passthrough();
 
-export interface Job {
-  job_id: string;
-  graph_id: string;
-  status: string;
-  submitted_at: string;
-  updated_at: string;
-  executor_count?: number;
-  active_executors?: number;
-  daemon?: boolean;
-}
+export const JobEventSchema = z.object({
+  timestamp: z.string().optional().default('unknown'),
+  type: z.string().optional().default('unknown'),
+  agent_id: z.string().optional(),
+  payload: z.any().optional(),
+}).passthrough();
 
-export interface JobDetails {
-  job: Job;
-  summary: any;
-  agents: Agent[];
-  sandboxes: any[];
-  recent_events: JobEvent[];
-}
+export const JobSchema = z.object({
+  job_id: z.string().optional().default('unknown'),
+  graph_id: z.string().optional().default('unknown'),
+  status: z.string().optional().default('unknown'),
+  submitted_at: z.string().optional(),
+  updated_at: z.string().optional(),
+  executor_count: z.number().optional(),
+  active_executors: z.number().optional(),
+  daemon: z.boolean().optional(),
+}).passthrough();
 
-export interface Agent {
-  agent_id: string;
-  agent_type: string;
-  type: string;
-  assigned_node: string;
-  status: string;
-  running?: boolean;
-  processed_messages: number;
-  mailbox_depth: number;
-  paused?: boolean;
-  metadata?: {
-    outbound_edges?: string[];
-  };
-}
+export const JobDetailsSchema = z.object({
+  job: JobSchema.optional(),
+  summary: z.any().optional(),
+  agents: z.array(AgentSchema).optional().default([]),
+  sandboxes: z.array(z.any()).optional().default([]),
+  recent_events: z.array(JobEventSchema).optional().default([]),
+}).passthrough();
 
-export interface JobEvent {
-  timestamp: string;
-  type: string;
-  agent_id?: string;
-  payload: any;
-}
+export const SystemSummarySchema = z.object({
+  nodes: z.array(z.object({
+    name: z.string().optional().default('unknown'),
+    connected_nodes: z.array(z.string()).optional().default([]),
+    self: z.boolean().optional(),
+    executor_pools: z.record(z.object({
+      capacity: z.number().optional().default(0),
+      available: z.number().optional().default(0),
+      in_use: z.number().optional().default(0),
+      queued: z.number().optional().default(0),
+      active: z.number().optional().default(0),
+    })).optional().default({}),
+  }).passthrough()).optional().default([]),
+  jobs: z.array(z.object({
+    job_id: z.string().optional().default('unknown'),
+    status: z.string().optional().default('unknown'),
+  }).passthrough()).optional().default([]),
+}).passthrough();
 
-export const fetchSystemSummary = () => api.get<SystemSummary>('/system/summary').then(r => r.data);
-export const fetchJobs = () => api.get<{ data: Job[] }>('/jobs').then(r => r.data.data);
-export const fetchJobDetails = (id: string) => api.get<JobDetails>(`/jobs/${id}`).then(r => r.data);
-export const fetchJobEvents = (id: string) => api.get<{ data: JobEvent[] }>(`/jobs/${id}/events`).then(r => r.data.data);
+export type Agent = z.infer<typeof AgentSchema>;
+export type JobEvent = z.infer<typeof JobEventSchema>;
+export type Job = z.infer<typeof JobSchema>;
+export type JobDetails = z.infer<typeof JobDetailsSchema>;
+export type SystemSummary = z.infer<typeof SystemSummarySchema>;
+
+export const fetchSystemSummary = () => api.get('/system/summary').then(r => {
+  const result = SystemSummarySchema.safeParse(r.data);
+  if (!result.success) {
+    console.error('SystemSummary validation failed:', result.error);
+    return SystemSummarySchema.parse({}); // return default structured fallback
+  }
+  return result.data;
+});
+
+export const fetchJobs = () => api.get('/jobs').then(r => {
+  const data = r.data?.data || [];
+  const result = z.array(JobSchema).safeParse(data);
+  if (!result.success) {
+    console.error('fetchJobs validation failed:', result.error);
+    return [];
+  }
+  return result.data;
+});
+
+export const fetchJobDetails = (id: string) => api.get(`/jobs/${id}`).then(r => {
+  const result = JobDetailsSchema.safeParse(r.data);
+  if (!result.success) {
+    console.error(`fetchJobDetails(${id}) validation failed:`, result.error);
+    return JobDetailsSchema.parse({ job: { job_id: id, status: 'unknown' } }); 
+  }
+  return result.data;
+});
+
+export const fetchJobEvents = (id: string) => api.get(`/jobs/${id}/events`).then(r => {
+  const data = r.data?.data || [];
+  const result = z.array(JobEventSchema).safeParse(data);
+  if (!result.success) {
+    console.error(`fetchJobEvents(${id}) validation failed:`, result.error);
+    return [];
+  }
+  return result.data;
+});
 export const cancelJob = (id: string) => api.post(`/jobs/${id}/cancel`).then(r => r.data);
 export const reloadBundle = (bundle_id: string) => api.post(`/bundles/${bundle_id}/reload`).then(r => r.data);
 

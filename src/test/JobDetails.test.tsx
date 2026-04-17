@@ -45,7 +45,7 @@ describe('JobDetails Component', () => {
     
     renderWithRouter(<JobDetails />);
     
-    expect(screen.getByText('Loading...')).toBeInTheDocument();
+    expect(screen.getByText(/Loading/i)).toBeInTheDocument();
   });
 
   it('renders job details and switches tabs', async () => {

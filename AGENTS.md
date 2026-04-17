@@ -72,6 +72,14 @@ This idea comes from classic usability heuristics (like Jakob Nielsen).
 - Clear next steps
 **Especially important in AI / agent interfaces:** User intent -> system reasoning -> visible output -> refine
 
+## 11. Robust Data Handling & API Safety
+**Principle:** Treat API responses as untrusted input.
+- **Runtime Validation:** Use tools like Zod, JSON Schema, or io-ts to validate API payloads at runtime before they reach the UI components.
+- **Pipeline Architecture:** Establish a clear `API -> Adapter -> UI Model` pipeline to map and sanitize external data into predictable internal structures.
+- **Graceful Failure:** Design UI components to handle missing, null, or malformed data gracefully (e.g., fallback texts, disabled states) without crashing the entire page.
+- **Tracking:** Track schema violations with logging and alerts to catch silent API contract breaks early.
+**Why it matters:** Backend systems change and fail. A resilient UI protects the user from seeing blank screens or cryptic crash errors.
+
 ## Simple Mental Model
 You can compress all of this into one loop:
 **User Intent -> Action -> Immediate Feedback -> System Processing -> Clear Result -> Next Action**

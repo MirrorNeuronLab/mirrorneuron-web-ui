@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { fetchJobDetails, fetchJobEvents, cancelJob, pauseJob, resumeJob } from '../api';
 import type { JobDetails as JobDetailsType, JobEvent } from '../api';
 import { format } from 'date-fns';
@@ -56,6 +56,7 @@ const getLayoutedElements = (nodes: any[], edges: any[], direction = 'TB') => {
 
 export default function JobDetails() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [details, setDetails] = useState<JobDetailsType | null>(null);
   const [events, setEvents] = useState<JobEvent[]>([]);
   const [activeTab, setActiveTab] = useState<'graph' | 'agents' | 'logs'>('graph');
@@ -77,15 +78,16 @@ export default function JobDetails() {
       setEvents(e);
       
       // build graph
-      const rawNodes = d.agents.map(a => ({
+      const agentsList = d.agents || [];
+      const rawNodes = agentsList.map(a => ({
         id: a.agent_id,
         data: { 
           label: (
             <div className="flex flex-col">
               <div className="font-bold text-sm truncate">{a.agent_id}</div>
               <div className="text-xs text-gray-500 flex justify-between mt-1">
-                <span>{a.agent_type}</span>
-                <span className={a.status === 'running' ? 'text-blue-500' : 'text-slate-500'}>{a.status}</span>
+                <span>{a.agent_type || 'Unknown'}</span>
+                <span className={a.status === 'running' ? 'text-blue-500' : 'text-slate-500'}>{a.status || 'unknown'}</span>
               </div>
             </div>
           )
@@ -94,14 +96,14 @@ export default function JobDetails() {
       }));
       
       const rawEdges: any[] = [];
-      d.agents.forEach(a => {
-        if (a.metadata?.outbound_edges) {
+      agentsList.forEach(a => {
+        if (a.metadata && a.metadata.outbound_edges) {
           a.metadata.outbound_edges.forEach((target: string) => {
             rawEdges.push({
               id: `${a.agent_id}-${target}`,
               source: a.agent_id,
               target: target,
-              animated: d.job.status === 'running',
+              animated: d.job?.status === 'running',
             });
           });
         }
@@ -122,19 +124,17 @@ export default function JobDetails() {
     return () => clearInterval(timer);
   }, [load]);
 
-  if (!details) return <div className="p-8">Loading...</div>;
+  if (!details || !details.job) return <div className="p-8">Loading or Invalid Job...</div>;
 
   const handleCancel = async () => {
     try {
       setCancelError(null);
       setIsCancelling(true);
       await cancelJob(id!);
-      await load();
-      setShowCancelConfirm(false);
+      navigate('/jobs');
     } catch (err: any) {
       console.error('Failed to cancel job', err);
       setCancelError(err?.response?.data?.error || err.message || 'Failed to cancel job');
-    } finally {
       setIsCancelling(false);
     }
   };
@@ -175,9 +175,9 @@ export default function JobDetails() {
             </div>
           </div>
           <div className="text-slate-500 text-sm space-x-4">
-            <span>Graph: <strong className="text-slate-700">{details.job.graph_id}</strong></span>
-            <span>Submitted: <strong className="text-slate-700">{format(new Date(details.job.submitted_at), 'PP p')}</strong></span>
-            <span>Executors: <strong className="text-slate-700">{details.job.active_executors ?? 0} / {details.job.daemon ? '∞' : (details.job.executor_count ?? 0)}</strong></span>
+            <span>Graph: <strong className="text-slate-700">{details.job.graph_id || 'unknown'}</strong></span>
+            <span>Submitted: <strong className="text-slate-700">{details.job.submitted_at ? format(new Date(details.job.submitted_at), 'PP p') : 'unknown'}</strong></span>
+            <span>Executors: <strong className="text-slate-700">{details.summary?.active_executors ?? details.job.active_executors ?? 0} / {(details.summary?.daemon ?? details.job.daemon) ? '∞' : (details.summary?.executor_count ?? details.job.executor_count ?? 0)}</strong></span>
           </div>
         </div>
         <div className="flex gap-2">
@@ -227,13 +227,13 @@ export default function JobDetails() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {details.agents.map((agent) => (
-                    <tr key={agent.agent_id} className="hover:bg-slate-50/50">
-                      <td className="px-6 py-4 font-mono text-sm text-purple-700 font-medium">{agent.agent_id}</td>
-                      <td className="px-6 py-4 text-sm text-slate-600">{agent.agent_type} / {agent.type}</td>
-                      <td className="px-6 py-4 text-sm capitalize">{agent.status}</td>
-                      <td className="px-6 py-4 text-sm text-slate-600">{agent.processed_messages} processed, {agent.mailbox_depth} in queue</td>
-                      <td className="px-6 py-4 text-sm text-slate-500">{agent.assigned_node}</td>
+                  {(details.agents || []).map((agent, i) => (
+                    <tr key={agent.agent_id || i} className="hover:bg-slate-50/50">
+                      <td className="px-6 py-4 font-mono text-sm text-purple-700 font-medium">{agent.agent_id || 'unknown'}</td>
+                      <td className="px-6 py-4 text-sm text-slate-600">{agent.agent_type || 'unknown'} / {agent.type || 'unknown'}</td>
+                      <td className="px-6 py-4 text-sm capitalize">{agent.status || 'unknown'}</td>
+                      <td className="px-6 py-4 text-sm text-slate-600">{agent.processed_messages ?? 0} processed, {agent.mailbox_depth ?? 0} in queue</td>
+                      <td className="px-6 py-4 text-sm text-slate-500">{agent.assigned_node || 'unassigned'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -243,12 +243,12 @@ export default function JobDetails() {
 
           {activeTab === 'logs' && (
             <div className="overflow-auto absolute inset-0 bg-slate-900 text-slate-300 font-mono text-sm p-4">
-              {events.map((ev, i) => (
+              {(events || []).slice().reverse().map((ev, i) => (
                 <div key={i} className="mb-2">
-                  <span className="text-slate-500">{format(new Date(ev.timestamp), 'HH:mm:ss.SSS')}</span>{' '}
+                  <span className="text-slate-500">{ev.timestamp ? format(new Date(ev.timestamp), 'HH:mm:ss.SSS') : 'unknown'}</span>{' '}
                   <span className="text-blue-400">[{ev.type}]</span>{' '}
                   {ev.agent_id && <span className="text-purple-400 font-bold">{ev.agent_id}</span>}{' '}
-                  <span className="text-green-300">{JSON.stringify(ev.payload)}</span>
+                  <span className="text-green-300">{ev.payload ? JSON.stringify(ev.payload) : ''}</span>
                 </div>
               ))}
               {events.length === 0 && <div className="text-slate-500 italic">No events recorded.</div>}
