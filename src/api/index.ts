@@ -65,3 +65,14 @@ export const fetchJobDetails = (id: string) => api.get<JobDetails>(`/jobs/${id}`
 export const fetchJobEvents = (id: string) => api.get<{ data: JobEvent[] }>(`/jobs/${id}/events`).then(r => r.data.data);
 export const cancelJob = (id: string) => api.post(`/jobs/${id}/cancel`).then(r => r.data);
 export const reloadBundle = (bundle_id: string) => api.post(`/bundles/${bundle_id}/reload`).then(r => r.data);
+
+export const pauseJob = (id: string) => api.post(`/jobs/${id}/pause`).then(r => r.data);
+export const resumeJob = (id: string) => api.post(`/jobs/${id}/resume`).then(r => r.data);
+export const uploadBundle = (file: File) => {
+  const formData = new FormData();
+  formData.append('bundle', file);
+  return api.post('/bundles/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }).then(r => r.data);
+};
+export const createJob = (payload: any) => api.post('/jobs', payload).then(r => r.data);

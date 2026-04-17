@@ -18,6 +18,7 @@ const StatusIcon = ({ status }: { status: string }) => {
 export default function Jobs() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -35,13 +36,26 @@ export default function Jobs() {
     return () => clearInterval(timer);
   }, []);
 
+  const filteredJobs = showAll ? jobs : jobs.filter(j => ['running', 'pending', 'paused'].includes(j.status));
+
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
       <div className="px-6 py-4 border-b border-slate-200 bg-slate-50/50 flex justify-between items-center">
-        <h2 className="font-semibold text-slate-800">All Jobs</h2>
-        <Link to="/run" className="px-4 py-2 bg-purple-600 text-white rounded-md text-sm font-medium hover:bg-purple-700 transition-colors">
-          Submit New Job
-        </Link>
+        <h2 className="font-semibold text-slate-800">Jobs {showAll ? '(All)' : '(Active)'}</h2>
+        <div className="flex items-center gap-4">
+          <label className="flex items-center text-sm text-slate-600 cursor-pointer select-none">
+            <input 
+              type="checkbox" 
+              checked={showAll} 
+              onChange={(e) => setShowAll(e.target.checked)}
+              className="mr-2 rounded text-purple-600 focus:ring-purple-500"
+            />
+            Show All
+          </label>
+          <Link to="/run" className="px-4 py-2 bg-purple-600 text-white rounded-md text-sm font-medium hover:bg-purple-700 transition-colors">
+            Submit New Job
+          </Link>
+        </div>
       </div>
       <table className="w-full text-left border-collapse">
         <thead>
@@ -64,14 +78,14 @@ export default function Jobs() {
                 <td className="px-6 py-4"><div className="h-5 bg-slate-200 rounded w-16"></div></td>
               </tr>
             ))
-          ) : jobs.length === 0 ? (
+          ) : filteredJobs.length === 0 ? (
             <tr>
               <td colSpan={5} className="px-6 py-8 text-center text-slate-500">
                 No jobs found.
               </td>
             </tr>
           ) : (
-            jobs.map((job) => (
+            filteredJobs.map((job) => (
               <tr key={job.job_id} className="hover:bg-slate-50/50 transition-colors">
                 <td className="px-6 py-4">
                   <div className="flex items-center">

@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { fetchJobDetails, fetchJobEvents, cancelJob } from '../api';
+import { fetchJobDetails, fetchJobEvents, cancelJob, pauseJob, resumeJob } from '../api';
 import type { JobDetails as JobDetailsType, JobEvent } from '../api';
 import { format } from 'date-fns';
-import { PlayCircle, CheckCircle, XCircle, Clock, AlertCircle, Ban } from 'lucide-react';
+import { PlayCircle, CheckCircle, XCircle, Clock, AlertCircle, Ban, PauseCircle, Play } from 'lucide-react';
 import { ReactFlow, MiniMap, Controls, Background, useNodesState, useEdgesState } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import dagre from 'dagre';
@@ -14,6 +14,7 @@ const StatusIcon = ({ status }: { status: string }) => {
     case 'completed': return <CheckCircle className="w-5 h-5 text-green-500" />;
     case 'failed': return <XCircle className="w-5 h-5 text-red-500" />;
     case 'pending': return <Clock className="w-5 h-5 text-purple-500" />;
+    case 'paused': return <PauseCircle className="w-5 h-5 text-yellow-500" />;
     case 'cancelled': return <Ban className="w-5 h-5 text-slate-500" />;
     default: return <AlertCircle className="w-5 h-5 text-slate-400" />;
   }
@@ -61,64 +62,76 @@ export default function JobDetails() {
   const [nodes, setNodes, onNodesChange] = useNodesState<any>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<any>([]);
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (!id) return;
-    const load = async () => {
-      try {
-        const [d, e] = await Promise.all([fetchJobDetails(id), fetchJobEvents(id)]);
-        setDetails(d);
-        setEvents(e);
-        
-        // build graph
-        const rawNodes = d.agents.map(a => ({
-          id: a.agent_id,
-          data: { 
-            label: (
-              <div className="flex flex-col">
-                <div className="font-bold text-sm truncate">{a.agent_id}</div>
-                <div className="text-xs text-gray-500 flex justify-between mt-1">
-                  <span>{a.agent_type}</span>
-                  <span className={a.status === 'running' ? 'text-blue-500' : 'text-slate-500'}>{a.status}</span>
-                </div>
+    try {
+      const [d, e] = await Promise.all([fetchJobDetails(id), fetchJobEvents(id)]);
+      setDetails(d);
+      setEvents(e);
+      
+      // build graph
+      const rawNodes = d.agents.map(a => ({
+        id: a.agent_id,
+        data: { 
+          label: (
+            <div className="flex flex-col">
+              <div className="font-bold text-sm truncate">{a.agent_id}</div>
+              <div className="text-xs text-gray-500 flex justify-between mt-1">
+                <span>{a.agent_type}</span>
+                <span className={a.status === 'running' ? 'text-blue-500' : 'text-slate-500'}>{a.status}</span>
               </div>
-            )
-          },
-          style: { border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px', background: 'white', width: 200 },
-        }));
-        
-        const rawEdges: any[] = [];
-        d.agents.forEach(a => {
-          if (a.metadata?.outbound_edges) {
-            a.metadata.outbound_edges.forEach((target: string) => {
-              rawEdges.push({
-                id: `${a.agent_id}-${target}`,
-                source: a.agent_id,
-                target: target,
-                animated: d.job.status === 'running',
-              });
+            </div>
+          )
+        },
+        style: { border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px', background: 'white', width: 200 },
+      }));
+      
+      const rawEdges: any[] = [];
+      d.agents.forEach(a => {
+        if (a.metadata?.outbound_edges) {
+          a.metadata.outbound_edges.forEach((target: string) => {
+            rawEdges.push({
+              id: `${a.agent_id}-${target}`,
+              source: a.agent_id,
+              target: target,
+              animated: d.job.status === 'running',
             });
-          }
-        });
+          });
+        }
+      });
 
-        const layouted = getLayoutedElements(rawNodes, rawEdges);
-        setNodes(layouted.nodes);
-        setEdges(layouted.edges);
+      const layouted = getLayoutedElements(rawNodes, rawEdges);
+      setNodes(layouted.nodes);
+      setEdges(layouted.edges);
 
-      } catch (err) {
-        console.error('Failed to load job details', err);
-      }
-    };
+    } catch (err) {
+      console.error('Failed to load job details', err);
+    }
+  }, [id, setNodes, setEdges]);
+
+  useEffect(() => {
     load();
     const timer = setInterval(load, 3000);
     return () => clearInterval(timer);
-  }, [id, setNodes, setEdges]);
+  }, [load]);
 
   if (!details) return <div className="p-8">Loading...</div>;
 
   const handleCancel = async () => {
     if (confirm('Cancel this job?')) {
       await cancelJob(id!);
+      load();
     }
+  };
+
+  const handlePause = async () => {
+    await pauseJob(id!);
+    load();
+  };
+
+  const handleResume = async () => {
+    await resumeJob(id!);
+    load();
   };
 
   return (
@@ -138,11 +151,22 @@ export default function JobDetails() {
             <span>Executors: <strong className="text-slate-700">{details.job.active_executors ?? 0} / {details.job.executor_count ?? 0}</strong></span>
           </div>
         </div>
-        {details.job.status === 'running' || details.job.status === 'pending' ? (
-          <button onClick={handleCancel} className="px-4 py-2 bg-red-50 text-red-600 border border-red-200 rounded-md font-medium text-sm hover:bg-red-100 transition-colors">
-            Cancel Job
-          </button>
-        ) : null}
+        <div className="flex gap-2">
+          {details.job.status === 'running' ? (
+            <button onClick={handlePause} className="px-4 py-2 bg-yellow-50 text-yellow-600 border border-yellow-200 rounded-md font-medium text-sm hover:bg-yellow-100 transition-colors flex items-center">
+              <PauseCircle className="w-4 h-4 mr-2" /> Pause
+            </button>
+          ) : details.job.status === 'paused' ? (
+            <button onClick={handleResume} className="px-4 py-2 bg-green-50 text-green-600 border border-green-200 rounded-md font-medium text-sm hover:bg-green-100 transition-colors flex items-center">
+              <Play className="w-4 h-4 mr-2" /> Resume
+            </button>
+          ) : null}
+          {(details.job.status === 'running' || details.job.status === 'pending' || details.job.status === 'paused') ? (
+            <button onClick={handleCancel} className="px-4 py-2 bg-red-50 text-red-600 border border-red-200 rounded-md font-medium text-sm hover:bg-red-100 transition-colors flex items-center">
+              <Ban className="w-4 h-4 mr-2" /> Cancel
+            </button>
+          ) : null}
+        </div>
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex-1 flex flex-col min-h-[500px]">
