@@ -4,13 +4,17 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import JobDetails from '../pages/JobDetails';
 import { fetchJobDetails, fetchJobEvents, cancelJob, pauseJob, resumeJob } from '../api';
 
-vi.mock('../api', () => ({
-  fetchJobDetails: vi.fn(),
-  fetchJobEvents: vi.fn(),
-  cancelJob: vi.fn(),
-  pauseJob: vi.fn(),
-  resumeJob: vi.fn(),
-}));
+vi.mock('../api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../api')>();
+  return {
+    ...actual,
+    fetchJobDetails: vi.fn(),
+    fetchJobEvents: vi.fn(),
+    cancelJob: vi.fn(),
+    pauseJob: vi.fn(),
+    resumeJob: vi.fn(),
+  };
+});
 
 // Mock ReactFlow because we can't test canvas elements easily in jsdom
 vi.mock('@xyflow/react', () => ({

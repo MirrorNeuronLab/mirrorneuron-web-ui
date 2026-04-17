@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { fetchJobs } from '../api';
+import { fetchJobs, isJobDaemon } from '../api';
 import type { Job } from '../api';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
@@ -100,10 +100,10 @@ export default function Jobs() {
                 </td>
                 <td className="px-6 py-4 text-sm text-slate-600">{job.graph_id}</td>
                 <td className="px-6 py-4 text-sm text-slate-500">
-                  {format(new Date(job.submitted_at), 'MMM d, HH:mm:ss')}
+                  {job.submitted_at ? format(new Date(job.submitted_at), 'MMM d, HH:mm:ss') : 'Unknown'}
                 </td>
                 <td className="px-6 py-4 text-sm text-slate-600">
-                  {job.active_executors ?? 0} / {job.daemon ? '∞' : (job.executor_count ?? 0)}
+                  {isJobDaemon(job) ? '∞' : `${job.active_executors ?? 0} / ${job.executor_count ?? 0}`}
                 </td>
               </tr>
             ))

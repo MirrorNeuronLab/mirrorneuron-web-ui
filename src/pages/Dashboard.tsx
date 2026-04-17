@@ -101,7 +101,7 @@ export default function Dashboard() {
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {Object.entries(node.executor_pools || {}).map(([poolName, stats]) => (
+                {Object.entries(node.executor_pools || {}).map(([poolName, stats]: [string, any]) => (
                   <div key={poolName} className="bg-slate-50 rounded-lg p-4 border border-slate-100">
                     <div className="text-sm font-medium text-slate-700 mb-2">Pool: {poolName}</div>
                     <div className="flex justify-between text-sm">

@@ -47,7 +47,7 @@ export const SystemSummarySchema = z.object({
     name: z.string().optional().default('unknown'),
     connected_nodes: z.array(z.string()).optional().default([]),
     self: z.boolean().optional(),
-    executor_pools: z.record(z.object({
+    executor_pools: z.record(z.string(), z.object({
       capacity: z.number().optional().default(0),
       available: z.number().optional().default(0),
       in_use: z.number().optional().default(0),
@@ -66,6 +66,12 @@ export type JobEvent = z.infer<typeof JobEventSchema>;
 export type Job = z.infer<typeof JobSchema>;
 export type JobDetails = z.infer<typeof JobDetailsSchema>;
 export type SystemSummary = z.infer<typeof SystemSummarySchema>;
+
+export const isJobDaemon = (job: Partial<Job> | null | undefined, summary?: any): boolean => {
+  if (summary?.daemon === true || job?.daemon === true) return true;
+  const combined = `${job?.job_id || ''} ${job?.graph_id || ''}`.toLowerCase();
+  return combined.includes('daemon') || combined.includes('deamon') || combined.includes('monitor');
+};
 
 export const fetchSystemSummary = () => api.get('/system/summary').then(r => {
   const result = SystemSummarySchema.safeParse(r.data);

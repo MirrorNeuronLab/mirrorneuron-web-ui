@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { fetchJobDetails, fetchJobEvents, cancelJob, pauseJob, resumeJob } from '../api';
+import { fetchJobDetails, fetchJobEvents, cancelJob, pauseJob, resumeJob, isJobDaemon } from '../api';
 import type { JobDetails as JobDetailsType, JobEvent } from '../api';
 import { format } from 'date-fns';
 import { PlayCircle, CheckCircle, XCircle, Clock, AlertCircle, Ban, PauseCircle, Play, Loader2 } from 'lucide-react';
@@ -177,7 +177,7 @@ export default function JobDetails() {
           <div className="text-slate-500 text-sm space-x-4">
             <span>Graph: <strong className="text-slate-700">{details.job.graph_id || 'unknown'}</strong></span>
             <span>Submitted: <strong className="text-slate-700">{details.job.submitted_at ? format(new Date(details.job.submitted_at), 'PP p') : 'unknown'}</strong></span>
-            <span>Executors: <strong className="text-slate-700">{details.summary?.active_executors ?? details.job.active_executors ?? 0} / {(details.summary?.daemon ?? details.job.daemon) ? '∞' : (details.summary?.executor_count ?? details.job.executor_count ?? 0)}</strong></span>
+            <span>Executors: <strong className="text-slate-700">{isJobDaemon(details.job, details.summary) ? '∞' : `${details.summary?.active_executors ?? details.job.active_executors ?? 0} / ${details.summary?.executor_count ?? details.job.executor_count ?? 0}`}</strong></span>
           </div>
         </div>
         <div className="flex gap-2">

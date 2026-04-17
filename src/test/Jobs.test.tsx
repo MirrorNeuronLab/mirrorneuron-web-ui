@@ -4,9 +4,13 @@ import { BrowserRouter } from 'react-router-dom';
 import Jobs from '../pages/Jobs';
 import { fetchJobs } from '../api';
 
-vi.mock('../api', () => ({
-  fetchJobs: vi.fn(),
-}));
+vi.mock('../api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../api')>();
+  return {
+    ...actual,
+    fetchJobs: vi.fn(),
+  };
+});
 
 const renderWithRouter = (ui: React.ReactElement) => {
   return render(<BrowserRouter>{ui}</BrowserRouter>);
