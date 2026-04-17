@@ -3,10 +3,11 @@ import { useParams } from 'react-router-dom';
 import { fetchJobDetails, fetchJobEvents, cancelJob, pauseJob, resumeJob } from '../api';
 import type { JobDetails as JobDetailsType, JobEvent } from '../api';
 import { format } from 'date-fns';
-import { PlayCircle, CheckCircle, XCircle, Clock, AlertCircle, Ban, PauseCircle, Play } from 'lucide-react';
+import { PlayCircle, CheckCircle, XCircle, Clock, AlertCircle, Ban, PauseCircle, Play, Loader2 } from 'lucide-react';
 import { ReactFlow, MiniMap, Controls, Background, useNodesState, useEdgesState } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import dagre from 'dagre';
+import { ConfirmModal } from '../components/ConfirmModal';
 
 const StatusIcon = ({ status }: { status: string }) => {
   switch (status) {
@@ -59,6 +60,12 @@ export default function JobDetails() {
   const [events, setEvents] = useState<JobEvent[]>([]);
   const [activeTab, setActiveTab] = useState<'graph' | 'agents' | 'logs'>('graph');
   
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+  const [isPausing, setIsPausing] = useState(false);
+  const [isResuming, setIsResuming] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+
   const [nodes, setNodes, onNodesChange] = useNodesState<any>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<any>([]);
 
@@ -118,20 +125,42 @@ export default function JobDetails() {
   if (!details) return <div className="p-8">Loading...</div>;
 
   const handleCancel = async () => {
-    if (confirm('Cancel this job?')) {
+    try {
+      setCancelError(null);
+      setIsCancelling(true);
       await cancelJob(id!);
-      load();
+      await load();
+      setShowCancelConfirm(false);
+    } catch (err: any) {
+      console.error('Failed to cancel job', err);
+      setCancelError(err?.response?.data?.error || err.message || 'Failed to cancel job');
+    } finally {
+      setIsCancelling(false);
     }
   };
 
   const handlePause = async () => {
-    await pauseJob(id!);
-    load();
+    try {
+      setIsPausing(true);
+      await pauseJob(id!);
+      await load();
+    } catch (err) {
+      console.error('Failed to pause job', err);
+    } finally {
+      setIsPausing(false);
+    }
   };
 
   const handleResume = async () => {
-    await resumeJob(id!);
-    load();
+    try {
+      setIsResuming(true);
+      await resumeJob(id!);
+      await load();
+    } catch (err) {
+      console.error('Failed to resume job', err);
+    } finally {
+      setIsResuming(false);
+    }
   };
 
   return (
@@ -153,17 +182,17 @@ export default function JobDetails() {
         </div>
         <div className="flex gap-2">
           {details.job.status === 'running' ? (
-            <button onClick={handlePause} className="px-4 py-2 bg-yellow-50 text-yellow-600 border border-yellow-200 rounded-md font-medium text-sm hover:bg-yellow-100 transition-colors flex items-center">
-              <PauseCircle className="w-4 h-4 mr-2" /> Pause
+            <button disabled={isPausing} onClick={handlePause} className="px-4 py-2 bg-yellow-50 text-yellow-600 border border-yellow-200 rounded-md font-medium text-sm hover:bg-yellow-100 transition-colors flex items-center disabled:opacity-50">
+              {isPausing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <PauseCircle className="w-4 h-4 mr-2" />} Pause
             </button>
           ) : details.job.status === 'paused' ? (
-            <button onClick={handleResume} className="px-4 py-2 bg-green-50 text-green-600 border border-green-200 rounded-md font-medium text-sm hover:bg-green-100 transition-colors flex items-center">
-              <Play className="w-4 h-4 mr-2" /> Resume
+            <button disabled={isResuming} onClick={handleResume} className="px-4 py-2 bg-green-50 text-green-600 border border-green-200 rounded-md font-medium text-sm hover:bg-green-100 transition-colors flex items-center disabled:opacity-50">
+              {isResuming ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Play className="w-4 h-4 mr-2" />} Resume
             </button>
           ) : null}
           {(details.job.status === 'running' || details.job.status === 'pending' || details.job.status === 'paused') ? (
-            <button onClick={handleCancel} className="px-4 py-2 bg-red-50 text-red-600 border border-red-200 rounded-md font-medium text-sm hover:bg-red-100 transition-colors flex items-center">
-              <Ban className="w-4 h-4 mr-2" /> Cancel
+            <button disabled={isCancelling} onClick={() => setShowCancelConfirm(true)} className="px-4 py-2 bg-red-50 text-red-600 border border-red-200 rounded-md font-medium text-sm hover:bg-red-100 transition-colors flex items-center disabled:opacity-50">
+              {isCancelling ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Ban className="w-4 h-4 mr-2" />} Cancel
             </button>
           ) : null}
         </div>
@@ -227,6 +256,19 @@ export default function JobDetails() {
           )}
         </div>
       </div>
+      <ConfirmModal
+        isOpen={showCancelConfirm}
+        title="Cancel Job"
+        message="Are you sure you want to cancel this job? This action cannot be undone and will stop all running agents."
+        confirmLabel="Cancel Job"
+        onConfirm={handleCancel}
+        onCancel={() => {
+          setShowCancelConfirm(false);
+          setCancelError(null);
+        }}
+        isProcessing={isCancelling}
+        error={cancelError}
+      />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { uploadBundle, createJob } from '../api';
-import { Play, UploadCloud, CheckCircle } from 'lucide-react';
+import { Play, UploadCloud, CheckCircle, Loader2 } from 'lucide-react';
 
 export default function RunJob() {
   const [bundleData, setBundleData] = useState<{ bundle_path: string, manifest: any } | null>(null);
@@ -61,9 +61,12 @@ export default function RunJob() {
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                 disabled={uploading}
               />
-              <UploadCloud className="w-12 h-12 mx-auto text-slate-400 mb-4" />
+              <UploadCloud className={`w-12 h-12 mx-auto ${uploading ? 'text-purple-500 animate-bounce' : 'text-slate-400'} mb-4`} />
               {uploading ? (
-                <p className="text-sm font-medium text-purple-600">Uploading and validating...</p>
+                <div className="flex items-center justify-center text-purple-600">
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                  <p className="text-sm font-medium">Uploading and validating...</p>
+                </div>
               ) : (
                 <>
                   <p className="text-sm font-medium text-slate-700">Click to upload or drag and drop</p>
@@ -109,7 +112,11 @@ export default function RunJob() {
                   disabled={running}
                   className="flex items-center px-6 py-2 bg-purple-600 text-white rounded-md font-medium hover:bg-purple-700 transition-colors disabled:opacity-50"
                 >
-                  <Play className="w-4 h-4 mr-2" />
+                  {running ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Play className="w-4 h-4 mr-2" />
+                  )}
                   {running ? 'Starting...' : 'Run Job Now'}
                 </button>
               </div>

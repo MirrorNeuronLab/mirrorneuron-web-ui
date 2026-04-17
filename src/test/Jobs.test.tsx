@@ -40,7 +40,7 @@ describe('Jobs Component', () => {
       {
         job_id: 'test-job-123',
         graph_id: 'simple-graph',
-        status: 'completed',
+        status: 'running',
         submitted_at: '2026-04-16T12:00:00Z',
         active_executors: 0,
         executor_count: 2
@@ -56,7 +56,7 @@ describe('Jobs Component', () => {
     });
 
     expect(screen.getByText('simple-graph')).toBeInTheDocument();
-    expect(screen.getByText('completed')).toBeInTheDocument();
+    expect(screen.getByText('running')).toBeInTheDocument();
     expect(screen.getByText('0 / 2')).toBeInTheDocument();
   });
 });

@@ -2,12 +2,14 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import JobDetails from '../pages/JobDetails';
-import { fetchJobDetails, fetchJobEvents } from '../api';
+import { fetchJobDetails, fetchJobEvents, cancelJob, pauseJob, resumeJob } from '../api';
 
 vi.mock('../api', () => ({
   fetchJobDetails: vi.fn(),
   fetchJobEvents: vi.fn(),
   cancelJob: vi.fn(),
+  pauseJob: vi.fn(),
+  resumeJob: vi.fn(),
 }));
 
 // Mock ReactFlow because we can't test canvas elements easily in jsdom
@@ -93,5 +95,101 @@ describe('JobDetails Component', () => {
     // Switch to Logs tab
     fireEvent.click(screen.getByText('Communication Logs'));
     expect(screen.getByText('[agent_started]')).toBeInTheDocument();
+  });
+
+  it('pauses a running job', async () => {
+    const mockDetails = {
+      job: {
+        job_id: 'test-job-1',
+        graph_id: 'graph-1',
+        status: 'running',
+        submitted_at: '2026-04-16T12:00:00Z',
+      },
+      agents: []
+    };
+
+    (fetchJobDetails as any).mockResolvedValue(mockDetails);
+    (fetchJobEvents as any).mockResolvedValue([]);
+    (pauseJob as any).mockResolvedValue({ status: 'paused', job_id: 'test-job-1' });
+
+    renderWithRouter(<JobDetails />);
+
+    await waitFor(() => {
+      expect(screen.getByText('test-job-1')).toBeInTheDocument();
+    });
+
+    const pauseButton = screen.getByText('Pause');
+    fireEvent.click(pauseButton);
+
+    expect(pauseJob).toHaveBeenCalledWith('test-job-1');
+    await waitFor(() => {
+      expect(fetchJobDetails).toHaveBeenCalled(); // Ensure it was called
+    });
+  });
+
+  it('resumes a paused job', async () => {
+    const mockDetails = {
+      job: {
+        job_id: 'test-job-1',
+        graph_id: 'graph-1',
+        status: 'paused',
+        submitted_at: '2026-04-16T12:00:00Z',
+      },
+      agents: []
+    };
+
+    (fetchJobDetails as any).mockResolvedValue(mockDetails);
+    (fetchJobEvents as any).mockResolvedValue([]);
+    (resumeJob as any).mockResolvedValue({ status: 'resumed', job_id: 'test-job-1' });
+
+    renderWithRouter(<JobDetails />);
+
+    await waitFor(() => {
+      expect(screen.getByText('test-job-1')).toBeInTheDocument();
+    });
+
+    const resumeButton = screen.getByText('Resume');
+    fireEvent.click(resumeButton);
+
+    expect(resumeJob).toHaveBeenCalledWith('test-job-1');
+    await waitFor(() => {
+      expect(fetchJobDetails).toHaveBeenCalled(); // Ensure it was called
+    });
+  });
+
+  it('cancels a job', async () => {
+    const mockDetails = {
+      job: {
+        job_id: 'test-job-1',
+        graph_id: 'graph-1',
+        status: 'running',
+        submitted_at: '2026-04-16T12:00:00Z',
+      },
+      agents: []
+    };
+
+    (fetchJobDetails as any).mockResolvedValue(mockDetails);
+    (fetchJobEvents as any).mockResolvedValue([]);
+    (cancelJob as any).mockResolvedValue({ status: 'cancelled', job_id: 'test-job-1' });
+
+    renderWithRouter(<JobDetails />);
+
+    await waitFor(() => {
+      expect(screen.getByText('test-job-1')).toBeInTheDocument();
+    });
+
+    const cancelButton = screen.getByText('Cancel');
+    fireEvent.click(cancelButton);
+
+    // Should open confirm modal
+    expect(screen.getByText('Are you sure you want to cancel this job? This action cannot be undone and will stop all running agents.')).toBeInTheDocument();
+
+    const confirmButton = screen.getAllByText('Cancel Job')[1];
+    fireEvent.click(confirmButton);
+
+    expect(cancelJob).toHaveBeenCalledWith('test-job-1');
+    await waitFor(() => {
+      expect(fetchJobDetails).toHaveBeenCalled(); // Ensure it was called
+    });
   });
 });
