@@ -103,7 +103,7 @@ export default function Jobs() {
                   {format(new Date(job.submitted_at), 'MMM d, HH:mm:ss')}
                 </td>
                 <td className="px-6 py-4 text-sm text-slate-600">
-                  {job.active_executors ?? 0} / {job.executor_count ?? 0}
+                  {job.active_executors ?? 0} / {job.daemon ? '∞' : (job.executor_count ?? 0)}
                 </td>
               </tr>
             ))

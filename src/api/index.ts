@@ -27,6 +27,7 @@ export interface Job {
   updated_at: string;
   executor_count?: number;
   active_executors?: number;
+  daemon?: boolean;
 }
 
 export interface JobDetails {

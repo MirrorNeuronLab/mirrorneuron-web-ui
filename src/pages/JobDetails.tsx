@@ -177,7 +177,7 @@ export default function JobDetails() {
           <div className="text-slate-500 text-sm space-x-4">
             <span>Graph: <strong className="text-slate-700">{details.job.graph_id}</strong></span>
             <span>Submitted: <strong className="text-slate-700">{format(new Date(details.job.submitted_at), 'PP p')}</strong></span>
-            <span>Executors: <strong className="text-slate-700">{details.job.active_executors ?? 0} / {details.job.executor_count ?? 0}</strong></span>
+            <span>Executors: <strong className="text-slate-700">{details.job.active_executors ?? 0} / {details.job.daemon ? '∞' : (details.job.executor_count ?? 0)}</strong></span>
           </div>
         </div>
         <div className="flex gap-2">
