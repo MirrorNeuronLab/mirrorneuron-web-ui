@@ -154,7 +154,7 @@ export const fetchJobAgentGraph = (id: string) => api.get(`/jobs/${id}/agent-gra
   }
   return result.data;
 });
-export const clearJobs = () => api.post('/jobs/cleanup').then(r => r.data as { cleared_count: number });
+export const clearJobs = () => api.post('/jobs:cleanup').then(r => r.data as { cleared_count: number });
 export const cancelJob = (id: string) => api.post(`/jobs/${id}/cancel`).then(r => r.data);
 export const reloadBundle = (bundle_id: string) => api.post(`/bundles/${bundle_id}/reload`).then(r => r.data);
 
