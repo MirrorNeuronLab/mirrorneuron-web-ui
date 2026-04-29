@@ -2,7 +2,7 @@
 
 This is a modern Web UI for MirrorNeuron built with React, Vite, Tailwind CSS, and React Flow.
 
-It connects to the MirrorNeuron HTTP REST API (port 4000) to provide a rich dashboard, job inspection, live multi-agent layout graph, and real-time communication logs.
+It connects to the MirrorNeuron HTTP REST API to provide a rich dashboard, job inspection, live multi-agent layout graph, and real-time communication logs.
 
 ## Features
 
@@ -18,12 +18,12 @@ It connects to the MirrorNeuron HTTP REST API (port 4000) to provide a rich dash
 
 The Web UI runs on the same machine as your MirrorNeuron instance. 
 
-1. Ensure your MirrorNeuron runtime is running (it starts the HTTP API on port 4000 by default).
+1. Ensure the MirrorNeuron REST API is running (the standalone `mn-api` service uses port 4001 by default).
 2. Install dependencies for the Web UI:
    ```bash
    npm install
    ```
-3. Start the Web UI in development mode (which proxies `/api` to `localhost:4000`):
+3. Start the Web UI in development mode (which proxies `/api` to `localhost:4001`):
    ```bash
    npm run dev
    ```

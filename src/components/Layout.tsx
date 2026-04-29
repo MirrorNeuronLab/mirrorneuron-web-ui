@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom';
-import { Activity, LayoutDashboard, List, Play } from 'lucide-react';
+import { Circle, LayoutDashboard, List, Play, Plus } from 'lucide-react';
 import clsx from 'clsx';
 
 const navItems = [
@@ -10,13 +10,22 @@ const navItems = [
 
 export default function Layout() {
   return (
-    <div className="flex h-screen bg-slate-50 text-slate-900">
-      <aside className="w-64 bg-white border-r border-slate-200 flex flex-col">
-        <div className="h-16 flex items-center px-6 border-b border-slate-200">
-          <Activity className="text-purple-600 mr-3" />
-          <span className="text-lg font-bold">MirrorNeuron</span>
+    <div className="flex h-screen bg-white text-neutral-950">
+      <aside className="w-72 bg-neutral-50 border-r border-neutral-200 flex flex-col">
+        <div className="h-16 flex items-center px-6 border-b border-neutral-200">
+          <Circle className="w-5 h-5 mr-3" />
+          <span className="text-lg font-semibold tracking-tight">MirrorNeuron</span>
         </div>
-        <nav className="flex-1 py-4">
+        <div className="px-6 py-4">
+          <NavLink
+            to="/run"
+            className="flex h-11 items-center gap-3 rounded-md bg-neutral-950 px-4 text-sm font-medium text-white hover:bg-neutral-800"
+          >
+            <Plus className="w-4 h-4" />
+            Quick Create
+          </NavLink>
+        </div>
+        <nav className="flex-1 px-4 py-2">
           <ul className="space-y-1">
             {navItems.map((item) => (
               <li key={item.path}>
@@ -24,10 +33,10 @@ export default function Layout() {
                   to={item.path}
                   className={({ isActive }) =>
                     clsx(
-                      'flex items-center px-6 py-3 text-sm font-medium transition-colors',
+                      'flex items-center rounded-md px-3 py-2.5 text-sm font-medium transition-colors',
                       isActive
-                        ? 'text-purple-700 bg-purple-50 border-r-2 border-purple-600'
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                        ? 'bg-neutral-100 text-neutral-950'
+                        : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-950'
                     )
                   }
                 >
@@ -40,10 +49,10 @@ export default function Layout() {
         </nav>
       </aside>
       <main className="flex-1 flex flex-col overflow-hidden">
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center px-8 shrink-0">
-          <h1 className="text-xl font-semibold text-slate-800">Control Panel</h1>
+        <header className="h-16 bg-white border-b border-neutral-200 flex items-center px-8 shrink-0">
+          <h1 className="text-xl font-semibold tracking-tight text-neutral-950">Control Panel</h1>
         </header>
-        <div className="flex-1 overflow-auto p-8">
+        <div className="flex-1 overflow-auto bg-white p-8">
           <Outlet />
         </div>
       </main>

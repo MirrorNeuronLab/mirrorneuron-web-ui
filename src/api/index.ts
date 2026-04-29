@@ -36,10 +36,45 @@ export const JobSchema = z.object({
 
 export const JobDetailsSchema = z.object({
   job: JobSchema.optional(),
-  summary: z.any().optional(),
+  summary: z.record(z.string(), z.unknown()).optional(),
   agents: z.array(AgentSchema).optional().default([]),
-  sandboxes: z.array(z.any()).optional().default([]),
+  sandboxes: z.array(z.unknown()).optional().default([]),
   recent_events: z.array(JobEventSchema).optional().default([]),
+}).passthrough();
+
+export const AgentGraphNodeSchema = z.object({
+  id: z.string(),
+  label: z.string().optional(),
+  agent_type: z.string().optional().default('unknown'),
+  type: z.string().optional().default('unknown'),
+  assigned_node: z.string().optional().default('unassigned'),
+  status: z.string().optional().default('unknown'),
+  processed_messages: z.number().optional().default(0),
+  mailbox_depth: z.number().optional().default(0),
+}).passthrough();
+
+export const AgentGraphEdgeSchema = z.object({
+  id: z.string(),
+  source: z.string(),
+  target: z.string(),
+  message_type: z.string().optional().default('message'),
+  count: z.number().optional().default(0),
+  last_seen_at: z.string().nullable().optional(),
+  source_event: z.string().optional(),
+}).passthrough();
+
+export const AgentGraphSchema = z.object({
+  job_id: z.string(),
+  graph_id: z.string().nullable().optional(),
+  status: z.string().optional().default('unknown'),
+  nodes: z.array(AgentGraphNodeSchema).optional().default([]),
+  edges: z.array(AgentGraphEdgeSchema).optional().default([]),
+  stats: z.object({
+    agent_count: z.number().optional().default(0),
+    edge_count: z.number().optional().default(0),
+    message_count: z.number().optional().default(0),
+    event_count: z.number().optional().default(0),
+  }).optional().default({ agent_count: 0, edge_count: 0, message_count: 0, event_count: 0 }),
 }).passthrough();
 
 export const SystemSummarySchema = z.object({
@@ -65,9 +100,10 @@ export type Agent = z.infer<typeof AgentSchema>;
 export type JobEvent = z.infer<typeof JobEventSchema>;
 export type Job = z.infer<typeof JobSchema>;
 export type JobDetails = z.infer<typeof JobDetailsSchema>;
+export type AgentGraph = z.infer<typeof AgentGraphSchema>;
 export type SystemSummary = z.infer<typeof SystemSummarySchema>;
 
-export const isJobDaemon = (job: Partial<Job> | null | undefined, summary?: any): boolean => {
+export const isJobDaemon = (job: Partial<Job> | null | undefined, summary?: { daemon?: boolean }): boolean => {
   if (summary?.daemon === true || job?.daemon === true) return true;
   const combined = `${job?.job_id || ''} ${job?.graph_id || ''}`.toLowerCase();
   return combined.includes('daemon') || combined.includes('deamon') || combined.includes('monitor');
@@ -110,6 +146,14 @@ export const fetchJobEvents = (id: string) => api.get(`/jobs/${id}/events`).then
   }
   return result.data;
 });
+export const fetchJobAgentGraph = (id: string) => api.get(`/jobs/${id}/agent-graph`).then(r => {
+  const result = AgentGraphSchema.safeParse(r.data);
+  if (!result.success) {
+    console.error(`fetchJobAgentGraph(${id}) validation failed:`, result.error);
+    return AgentGraphSchema.parse({ job_id: id, nodes: [], edges: [] });
+  }
+  return result.data;
+});
 export const cancelJob = (id: string) => api.post(`/jobs/${id}/cancel`).then(r => r.data);
 export const reloadBundle = (bundle_id: string) => api.post(`/bundles/${bundle_id}/reload`).then(r => r.data);
 
@@ -122,4 +166,4 @@ export const uploadBundle = (file: File) => {
     headers: { 'Content-Type': 'multipart/form-data' }
   }).then(r => r.data);
 };
-export const createJob = (payload: any) => api.post('/jobs', payload).then(r => r.data);
+export const createJob = (payload: unknown) => api.post('/jobs', payload).then(r => r.data);

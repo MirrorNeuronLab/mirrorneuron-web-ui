@@ -1,27 +1,33 @@
 import { useEffect, useState, useCallback } from 'react';
+import type { ReactNode } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { fetchJobDetails, fetchJobEvents, cancelJob, pauseJob, resumeJob, isJobDaemon } from '../api';
-import type { JobDetails as JobDetailsType, JobEvent } from '../api';
+import { fetchJobDetails, fetchJobEvents, fetchJobAgentGraph, cancelJob, pauseJob, resumeJob, isJobDaemon } from '../api';
+import type { AgentGraph, JobDetails as JobDetailsType, JobEvent } from '../api';
 import { format } from 'date-fns';
-import { PlayCircle, CheckCircle, XCircle, Clock, AlertCircle, Ban, PauseCircle, Play, Loader2 } from 'lucide-react';
-import { ReactFlow, MiniMap, Controls, Background, useNodesState, useEdgesState } from '@xyflow/react';
+import { PlayCircle, CheckCircle, XCircle, Clock, AlertCircle, Ban, PauseCircle, Play, Loader2, Network, RadioTower, MessageSquare } from 'lucide-react';
+import { ReactFlow, MiniMap, Controls, Background, useNodesState, useEdgesState, Position } from '@xyflow/react';
+import type { Edge, Node } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import dagre from 'dagre';
 import { ConfirmModal } from '../components/ConfirmModal';
 
 const StatusIcon = ({ status }: { status: string }) => {
   switch (status) {
-    case 'running': return <PlayCircle className="w-5 h-5 text-blue-500" />;
-    case 'completed': return <CheckCircle className="w-5 h-5 text-green-500" />;
-    case 'failed': return <XCircle className="w-5 h-5 text-red-500" />;
-    case 'pending': return <Clock className="w-5 h-5 text-purple-500" />;
-    case 'paused': return <PauseCircle className="w-5 h-5 text-yellow-500" />;
-    case 'cancelled': return <Ban className="w-5 h-5 text-slate-500" />;
-    default: return <AlertCircle className="w-5 h-5 text-slate-400" />;
+    case 'running': return <PlayCircle className="w-5 h-5 text-neutral-700" />;
+    case 'completed': return <CheckCircle className="w-5 h-5 text-neutral-700" />;
+    case 'failed': return <XCircle className="w-5 h-5 text-neutral-700" />;
+    case 'pending': return <Clock className="w-5 h-5 text-neutral-700" />;
+    case 'paused': return <PauseCircle className="w-5 h-5 text-neutral-700" />;
+    case 'cancelled': return <Ban className="w-5 h-5 text-neutral-500" />;
+    default: return <AlertCircle className="w-5 h-5 text-neutral-400" />;
   }
 };
 
-const getLayoutedElements = (nodes: any[], edges: any[], direction = 'TB') => {
+type AgentNodeData = {
+  label: ReactNode;
+};
+
+const getLayoutedElements = (nodes: Node<AgentNodeData>[], edges: Edge[], direction = 'TB') => {
   const dagreGraph = new dagre.graphlib.Graph();
   dagreGraph.setDefaultEdgeLabel(() => ({}));
   const nodeWidth = 200;
@@ -42,8 +48,8 @@ const getLayoutedElements = (nodes: any[], edges: any[], direction = 'TB') => {
     const nodeWithPosition = dagreGraph.node(node.id);
     return {
       ...node,
-      targetPosition: 'top',
-      sourcePosition: 'bottom',
+      targetPosition: Position.Top,
+      sourcePosition: Position.Bottom,
       position: {
         x: nodeWithPosition.x - nodeWidth / 2,
         y: nodeWithPosition.y - nodeHeight / 2,
@@ -54,11 +60,24 @@ const getLayoutedElements = (nodes: any[], edges: any[], direction = 'TB') => {
   return { nodes: newNodes, edges };
 };
 
+const statusClass = (status: string) => {
+  switch (status) {
+    case 'running': return 'bg-neutral-100 text-neutral-950 border-neutral-300';
+    case 'completed': return 'bg-neutral-100 text-neutral-950 border-neutral-300';
+    case 'failed':
+    case 'error': return 'bg-neutral-100 text-neutral-950 border-neutral-300';
+    case 'paused': return 'bg-neutral-100 text-neutral-950 border-neutral-300';
+    case 'pending': return 'bg-neutral-100 text-neutral-950 border-neutral-300';
+    default: return 'bg-neutral-50 text-neutral-700 border-neutral-200';
+  }
+};
+
 export default function JobDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [details, setDetails] = useState<JobDetailsType | null>(null);
   const [events, setEvents] = useState<JobEvent[]>([]);
+  const [graph, setGraph] = useState<AgentGraph | null>(null);
   const [activeTab, setActiveTab] = useState<'graph' | 'agents' | 'logs'>('graph');
   
   const [isCancelling, setIsCancelling] = useState(false);
@@ -67,47 +86,46 @@ export default function JobDetails() {
   const [isResuming, setIsResuming] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
-  const [nodes, setNodes, onNodesChange] = useNodesState<any>([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState<any>([]);
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node<AgentNodeData>>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
 
   const load = useCallback(async () => {
     if (!id) return;
     try {
-      const [d, e] = await Promise.all([fetchJobDetails(id), fetchJobEvents(id)]);
+      const [d, e, g] = await Promise.all([fetchJobDetails(id), fetchJobEvents(id), fetchJobAgentGraph(id)]);
       setDetails(d);
       setEvents(e);
-      
-      // build graph
-      const agentsList = d.agents || [];
-      const rawNodes = agentsList.map(a => ({
-        id: a.agent_id,
+      setGraph(g);
+
+      const rawNodes = g.nodes.map(agent => ({
+        id: agent.id,
+        position: { x: 0, y: 0 },
         data: { 
           label: (
-            <div className="flex flex-col">
-              <div className="font-bold text-sm truncate">{a.agent_id}</div>
-              <div className="text-xs text-gray-500 flex justify-between mt-1">
-                <span>{a.agent_type || 'Unknown'}</span>
-                <span className={a.status === 'running' ? 'text-blue-500' : 'text-slate-500'}>{a.status || 'unknown'}</span>
+            <div className="flex flex-col gap-1">
+              <div className="truncate text-sm font-semibold text-neutral-950">{agent.label || agent.id}</div>
+              <div className="flex items-center justify-between gap-3 text-xs text-neutral-500">
+                <span className="truncate">{agent.agent_type || 'unknown'}</span>
+                <span className={`rounded-full border px-2 py-0.5 capitalize ${statusClass(agent.status)}`}>{agent.status || 'unknown'}</span>
               </div>
+              <div className="text-xs text-neutral-400">{agent.processed_messages ?? 0} processed · {agent.mailbox_depth ?? 0} queued</div>
             </div>
           )
         },
-        style: { border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px', background: 'white', width: 200 },
-      }));
-      
-      const rawEdges: any[] = [];
-      agentsList.forEach(a => {
-        if (a.metadata && a.metadata.outbound_edges) {
-          a.metadata.outbound_edges.forEach((target: string) => {
-            rawEdges.push({
-              id: `${a.agent_id}-${target}`,
-              source: a.agent_id,
-              target: target,
-              animated: d.job?.status === 'running',
-            });
-          });
-        }
-      });
+        style: { border: '1px solid #d4d4d4', borderRadius: 8, padding: 10, background: 'white', width: 220, boxShadow: '0 1px 2px rgba(15, 23, 42, 0.06)' },
+      } satisfies Node<AgentNodeData>));
+
+      const rawEdges = g.edges.map(edge => ({
+        id: edge.id,
+        source: edge.source,
+        target: edge.target,
+        label: edge.count > 0 ? `${edge.message_type} (${edge.count})` : edge.message_type,
+        animated: g.status === 'running',
+        type: 'smoothstep',
+        style: { stroke: edge.count > 0 ? '#171717' : '#737373', strokeWidth: edge.count > 1 ? 2 : 1.5 },
+        labelStyle: { fill: '#525252', fontSize: 11, fontWeight: 600 },
+        labelBgStyle: { fill: '#ffffff', fillOpacity: 0.9 },
+      } satisfies Edge));
 
       const layouted = getLayoutedElements(rawNodes, rawEdges);
       setNodes(layouted.nodes);
@@ -132,9 +150,10 @@ export default function JobDetails() {
       setIsCancelling(true);
       await cancelJob(id!);
       navigate('/jobs');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to cancel job', err);
-      setCancelError(err?.response?.data?.error || err.message || 'Failed to cancel job');
+      const message = err instanceof Error ? err.message : 'Failed to cancel job';
+      setCancelError(message);
       setIsCancelling(false);
     }
   };
@@ -165,44 +184,63 @@ export default function JobDetails() {
 
   return (
     <div className="space-y-6 flex flex-col h-full">
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 shrink-0 flex justify-between items-start">
+      <div className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-4 shrink-0">
+        <div className="bg-white rounded-lg border border-neutral-200 shadow-sm p-6 flex justify-between items-start">
         <div>
           <div className="flex items-center space-x-3 mb-2">
-            <h2 className="text-xl font-bold font-mono text-slate-800">{details.job.job_id}</h2>
-            <div className="flex items-center bg-slate-100 px-3 py-1 rounded-full">
+            <h2 className="text-xl font-bold font-mono text-neutral-950">{details.job.job_id}</h2>
+            <div className={`flex items-center px-3 py-1 rounded-full border ${statusClass(details.job.status)}`}>
               <StatusIcon status={details.job.status} />
-              <span className="ml-2 text-sm font-medium capitalize text-slate-700">{details.job.status}</span>
+              <span className="ml-2 text-sm font-medium capitalize">{details.job.status}</span>
             </div>
           </div>
-          <div className="text-slate-500 text-sm space-x-4">
-            <span>Graph: <strong className="text-slate-700">{details.job.graph_id || 'unknown'}</strong></span>
-            <span>Submitted: <strong className="text-slate-700">{details.job.submitted_at ? format(new Date(details.job.submitted_at), 'PP p') : 'unknown'}</strong></span>
-            <span>Executors: <strong className="text-slate-700">{isJobDaemon(details.job, details.summary) ? '∞' : `${details.summary?.active_executors ?? details.job.active_executors ?? 0} / ${details.summary?.executor_count ?? details.job.executor_count ?? 0}`}</strong></span>
+          <div className="text-neutral-500 text-sm flex flex-wrap gap-x-4 gap-y-2">
+            <span>Graph: <strong className="text-neutral-700">{details.job.graph_id || 'unknown'}</strong></span>
+            <span>Submitted: <strong className="text-neutral-700">{details.job.submitted_at ? format(new Date(details.job.submitted_at), 'PP p') : 'unknown'}</strong></span>
+            <span>Executors: <strong className="text-neutral-700">{isJobDaemon(details.job, details.summary) ? '∞' : `${details.summary?.active_executors ?? details.job.active_executors ?? 0} / ${details.summary?.executor_count ?? details.job.executor_count ?? 0}`}</strong></span>
           </div>
         </div>
         <div className="flex gap-2">
           {details.job.status === 'running' ? (
-            <button disabled={isPausing} onClick={handlePause} className="px-4 py-2 bg-yellow-50 text-yellow-600 border border-yellow-200 rounded-md font-medium text-sm hover:bg-yellow-100 transition-colors flex items-center disabled:opacity-50">
+            <button disabled={isPausing} onClick={handlePause} className="px-4 py-2 bg-neutral-50 text-neutral-700 border border-neutral-200 rounded-md font-medium text-sm hover:bg-neutral-50 transition-colors flex items-center disabled:opacity-50">
               {isPausing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <PauseCircle className="w-4 h-4 mr-2" />} Pause
             </button>
           ) : details.job.status === 'paused' ? (
-            <button disabled={isResuming} onClick={handleResume} className="px-4 py-2 bg-green-50 text-green-600 border border-green-200 rounded-md font-medium text-sm hover:bg-green-100 transition-colors flex items-center disabled:opacity-50">
+            <button disabled={isResuming} onClick={handleResume} className="px-4 py-2 bg-neutral-50 text-neutral-700 border border-neutral-200 rounded-md font-medium text-sm hover:bg-neutral-50 transition-colors flex items-center disabled:opacity-50">
               {isResuming ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Play className="w-4 h-4 mr-2" />} Resume
             </button>
           ) : null}
           {(details.job.status === 'running' || details.job.status === 'pending' || details.job.status === 'paused') ? (
-            <button disabled={isCancelling} onClick={() => setShowCancelConfirm(true)} className="px-4 py-2 bg-red-50 text-red-600 border border-red-200 rounded-md font-medium text-sm hover:bg-red-100 transition-colors flex items-center disabled:opacity-50">
+            <button disabled={isCancelling} onClick={() => setShowCancelConfirm(true)} className="px-4 py-2 bg-neutral-50 text-neutral-700 border border-neutral-200 rounded-md font-medium text-sm hover:bg-neutral-50 transition-colors flex items-center disabled:opacity-50">
               {isCancelling ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Ban className="w-4 h-4 mr-2" />} Cancel
             </button>
           ) : null}
         </div>
       </div>
+        <div className="grid grid-cols-3 gap-3">
+          <div className="bg-white rounded-lg border border-neutral-200 p-4 shadow-sm">
+            <Network className="w-4 h-4 text-neutral-400 mb-3" />
+            <div className="text-2xl font-semibold text-neutral-950">{graph?.stats.agent_count ?? details.agents.length}</div>
+            <div className="text-xs font-medium text-neutral-500">Agents</div>
+          </div>
+          <div className="bg-white rounded-lg border border-neutral-200 p-4 shadow-sm">
+            <RadioTower className="w-4 h-4 text-neutral-400 mb-3" />
+            <div className="text-2xl font-semibold text-neutral-950">{graph?.stats.edge_count ?? 0}</div>
+            <div className="text-xs font-medium text-neutral-500">Links</div>
+          </div>
+          <div className="bg-white rounded-lg border border-neutral-200 p-4 shadow-sm">
+            <MessageSquare className="w-4 h-4 text-neutral-400 mb-3" />
+            <div className="text-2xl font-semibold text-neutral-950">{graph?.stats.message_count ?? 0}</div>
+            <div className="text-xs font-medium text-neutral-500">Messages</div>
+          </div>
+        </div>
+      </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex-1 flex flex-col min-h-[500px]">
-        <div className="flex border-b border-slate-200 bg-slate-50/50 px-4">
-          <button onClick={() => setActiveTab('graph')} className={`px-4 py-3 text-sm font-medium border-b-2 ${activeTab === 'graph' ? 'border-purple-600 text-purple-700' : 'border-transparent text-slate-600 hover:text-slate-900'}`}>Graph View</button>
-          <button onClick={() => setActiveTab('agents')} className={`px-4 py-3 text-sm font-medium border-b-2 ${activeTab === 'agents' ? 'border-purple-600 text-purple-700' : 'border-transparent text-slate-600 hover:text-slate-900'}`}>Agents</button>
-          <button onClick={() => setActiveTab('logs')} className={`px-4 py-3 text-sm font-medium border-b-2 ${activeTab === 'logs' ? 'border-purple-600 text-purple-700' : 'border-transparent text-slate-600 hover:text-slate-900'}`}>Communication Logs</button>
+      <div className="bg-white rounded-lg border border-neutral-200 shadow-sm flex-1 flex flex-col min-h-[560px] overflow-hidden">
+        <div className="flex border-b border-neutral-200 bg-neutral-50 px-4">
+          <button onClick={() => setActiveTab('graph')} className={`px-4 py-3 text-sm font-medium border-b-2 ${activeTab === 'graph' ? 'border-neutral-950 text-neutral-950' : 'border-transparent text-neutral-600 hover:text-neutral-950'}`}>Graph View</button>
+          <button onClick={() => setActiveTab('agents')} className={`px-4 py-3 text-sm font-medium border-b-2 ${activeTab === 'agents' ? 'border-neutral-950 text-neutral-950' : 'border-transparent text-neutral-600 hover:text-neutral-950'}`}>Agents</button>
+          <button onClick={() => setActiveTab('logs')} className={`px-4 py-3 text-sm font-medium border-b-2 ${activeTab === 'logs' ? 'border-neutral-950 text-neutral-950' : 'border-transparent text-neutral-600 hover:text-neutral-950'}`}>Communication Logs</button>
         </div>
 
         <div className="flex-1 relative">
@@ -217,8 +255,8 @@ export default function JobDetails() {
           {activeTab === 'agents' && (
             <div className="overflow-auto absolute inset-0">
               <table className="w-full text-left border-collapse">
-                <thead className="bg-slate-50 sticky top-0">
-                  <tr className="text-sm text-slate-500">
+                <thead className="bg-neutral-50 sticky top-0">
+                  <tr className="text-sm text-neutral-500">
                     <th className="px-6 py-3 font-medium">Agent ID</th>
                     <th className="px-6 py-3 font-medium">Type</th>
                     <th className="px-6 py-3 font-medium">Status</th>
@@ -226,14 +264,14 @@ export default function JobDetails() {
                     <th className="px-6 py-3 font-medium">Node</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-neutral-100">
                   {(details.agents || []).map((agent, i) => (
-                    <tr key={agent.agent_id || i} className="hover:bg-slate-50/50">
-                      <td className="px-6 py-4 font-mono text-sm text-purple-700 font-medium">{agent.agent_id || 'unknown'}</td>
-                      <td className="px-6 py-4 text-sm text-slate-600">{agent.agent_type || 'unknown'} / {agent.type || 'unknown'}</td>
+                    <tr key={agent.agent_id || i} className="hover:bg-neutral-50">
+                      <td className="px-6 py-4 font-mono text-sm text-neutral-950 font-medium">{agent.agent_id || 'unknown'}</td>
+                      <td className="px-6 py-4 text-sm text-neutral-600">{agent.agent_type || 'unknown'} / {agent.type || 'unknown'}</td>
                       <td className="px-6 py-4 text-sm capitalize">{agent.status || 'unknown'}</td>
-                      <td className="px-6 py-4 text-sm text-slate-600">{agent.processed_messages ?? 0} processed, {agent.mailbox_depth ?? 0} in queue</td>
-                      <td className="px-6 py-4 text-sm text-slate-500">{agent.assigned_node || 'unassigned'}</td>
+                      <td className="px-6 py-4 text-sm text-neutral-600">{agent.processed_messages ?? 0} processed, {agent.mailbox_depth ?? 0} in queue</td>
+                      <td className="px-6 py-4 text-sm text-neutral-500">{agent.assigned_node || 'unassigned'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -242,16 +280,16 @@ export default function JobDetails() {
           )}
 
           {activeTab === 'logs' && (
-            <div className="overflow-auto absolute inset-0 bg-slate-900 text-slate-300 font-mono text-sm p-4">
+            <div className="overflow-auto absolute inset-0 bg-neutral-950 text-neutral-300 font-mono text-sm p-4">
               {(events || []).slice().reverse().map((ev, i) => (
                 <div key={i} className="mb-2">
-                  <span className="text-slate-500">{ev.timestamp ? format(new Date(ev.timestamp), 'HH:mm:ss.SSS') : 'unknown'}</span>{' '}
-                  <span className="text-blue-400">[{ev.type}]</span>{' '}
-                  {ev.agent_id && <span className="text-purple-400 font-bold">{ev.agent_id}</span>}{' '}
-                  <span className="text-green-300">{ev.payload ? JSON.stringify(ev.payload) : ''}</span>
+                  <span className="text-neutral-500">{ev.timestamp ? format(new Date(ev.timestamp), 'HH:mm:ss.SSS') : 'unknown'}</span>{' '}
+                  <span className="text-neutral-300">[{ev.type}]</span>{' '}
+                  {ev.agent_id && <span className="text-neutral-300 font-bold">{ev.agent_id}</span>}{' '}
+                  <span className="text-neutral-300">{ev.payload ? JSON.stringify(ev.payload) : ''}</span>
                 </div>
               ))}
-              {events.length === 0 && <div className="text-slate-500 italic">No events recorded.</div>}
+              {events.length === 0 && <div className="text-neutral-500 italic">No events recorded.</div>}
             </div>
           )}
         </div>

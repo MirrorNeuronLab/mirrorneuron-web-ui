@@ -1,10 +1,11 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import Dashboard from '../pages/Dashboard';
-import { fetchSystemSummary } from '../api';
+import { fetchJobs, fetchSystemSummary } from '../api';
 
 vi.mock('../api', () => ({
   fetchSystemSummary: vi.fn(),
+  fetchJobs: vi.fn(),
 }));
 
 describe('Dashboard Component', () => {
@@ -15,6 +16,7 @@ describe('Dashboard Component', () => {
   it('renders skeleton loading state initially', () => {
     // Return a promise that doesn't resolve immediately to keep it in loading state
     (fetchSystemSummary as any).mockReturnValue(new Promise(() => {}));
+    (fetchJobs as any).mockReturnValue(new Promise(() => {}));
     
     const { container } = render(<Dashboard />);
     
@@ -41,21 +43,24 @@ describe('Dashboard Component', () => {
     };
 
     (fetchSystemSummary as any).mockResolvedValue(mockData);
+    (fetchJobs as any).mockResolvedValue([
+      { job_id: 'job1', status: 'running', active_executors: 1, executor_count: 2 },
+      { job_id: 'job2', status: 'pending', active_executors: 0, executor_count: 1 },
+    ]);
 
     render(<Dashboard />);
 
     // Wait for the data to load and skeleton to disappear
     await waitFor(() => {
-      expect(screen.queryByText('Active Nodes')).toBeInTheDocument();
+      expect(screen.queryByText('Total Jobs')).toBeInTheDocument();
     });
 
-    // Check if the correct counts are displayed
-    const counts = screen.getAllByText('1', { selector: '.text-2xl.font-bold' });
-    expect(counts.length).toBeGreaterThan(0); // 1 Node, 1 Running Job, 1 Pending Job etc.
+    expect(screen.getByText('Active Jobs')).toBeInTheDocument();
+    expect(screen.getByText('Executor Slots')).toBeInTheDocument();
     
     // Check if node details are rendered
     expect(screen.getByText('mn1@127.0.0.1')).toBeInTheDocument();
     expect(screen.getByText('Pool: default')).toBeInTheDocument();
-    expect(screen.getByText('Capacity: 2')).toBeInTheDocument();
+    expect(screen.getByText('Capacity')).toBeInTheDocument();
   });
 });

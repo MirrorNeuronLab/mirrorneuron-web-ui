@@ -2,7 +2,7 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import JobDetails from '../pages/JobDetails';
-import { fetchJobDetails, fetchJobEvents, cancelJob, pauseJob, resumeJob } from '../api';
+import { fetchJobDetails, fetchJobEvents, fetchJobAgentGraph, cancelJob, pauseJob, resumeJob } from '../api';
 
 vi.mock('../api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../api')>();
@@ -10,6 +10,7 @@ vi.mock('../api', async (importOriginal) => {
     ...actual,
     fetchJobDetails: vi.fn(),
     fetchJobEvents: vi.fn(),
+    fetchJobAgentGraph: vi.fn(),
     cancelJob: vi.fn(),
     pauseJob: vi.fn(),
     resumeJob: vi.fn(),
@@ -22,6 +23,7 @@ vi.mock('@xyflow/react', () => ({
   MiniMap: () => null,
   Controls: () => null,
   Background: () => null,
+  Position: { Top: 'top', Bottom: 'bottom' },
   useNodesState: () => [[], vi.fn(), vi.fn()],
   useEdgesState: () => [[], vi.fn(), vi.fn()],
 }));
@@ -39,6 +41,13 @@ const renderWithRouter = (ui: React.ReactElement) => {
 describe('JobDetails Component', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(fetchJobAgentGraph).mockResolvedValue({
+      job_id: 'test-job-1',
+      status: 'unknown',
+      nodes: [],
+      edges: [],
+      stats: { agent_count: 0, edge_count: 0, message_count: 0, event_count: 0 },
+    });
     // mock window.location to ensure useParams picks it up
     window.history.pushState({}, 'Test page', '/jobs/test-job-1');
   });
@@ -46,6 +55,7 @@ describe('JobDetails Component', () => {
   it('renders loading state initially', () => {
     (fetchJobDetails as any).mockReturnValue(new Promise(() => {}));
     (fetchJobEvents as any).mockReturnValue(new Promise(() => {}));
+    vi.mocked(fetchJobAgentGraph).mockReturnValue(new Promise(() => {}));
     
     renderWithRouter(<JobDetails />);
     
@@ -81,6 +91,13 @@ describe('JobDetails Component', () => {
 
     (fetchJobDetails as any).mockResolvedValue(mockDetails);
     (fetchJobEvents as any).mockResolvedValue(mockEvents);
+    vi.mocked(fetchJobAgentGraph).mockResolvedValue({
+      job_id: 'test-job-1',
+      status: 'running',
+      nodes: [{ id: 'agent-1', agent_type: 'executor', type: 'worker', assigned_node: 'node-1', status: 'running', processed_messages: 5, mailbox_depth: 0 }],
+      edges: [],
+      stats: { agent_count: 1, edge_count: 0, message_count: 0, event_count: 1 },
+    });
 
     renderWithRouter(<JobDetails />);
 
@@ -92,7 +109,7 @@ describe('JobDetails Component', () => {
     expect(screen.getByTestId('react-flow-mock')).toBeInTheDocument();
 
     // Switch to Agents tab
-    fireEvent.click(screen.getByText('Agents'));
+    fireEvent.click(screen.getByRole('button', { name: 'Agents' }));
     expect(screen.getByText('agent-1')).toBeInTheDocument();
     expect(screen.getByText('executor / worker')).toBeInTheDocument();
 
