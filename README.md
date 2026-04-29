@@ -29,3 +29,10 @@ The Web UI runs on the same machine as your MirrorNeuron instance.
    ```
 
 The application will be available at `http://localhost:5173`.
+
+## Configuration
+
+Vite is configured to expose `MIRROR_NEURON_` vars to the browser build:
+
+- `MIRROR_NEURON_WEB_API_BASE_URL`: REST API base URL, default `/api/v1`.
+- `MIRROR_NEURON_WEB_API_TOKEN`: optional bearer token for protected API instances.
