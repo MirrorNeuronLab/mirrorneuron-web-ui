@@ -118,6 +118,41 @@ describe('JobDetails Component', () => {
     expect(screen.getByText('[agent_started]')).toBeInTheDocument();
   });
 
+  it('renders job details when agent graph is unavailable', async () => {
+    const mockDetails = {
+      job: {
+        job_id: 'test-job-1',
+        graph_id: 'graph-1',
+        status: 'running',
+        submitted_at: '2026-04-16T12:00:00Z',
+      },
+      agents: [
+        {
+          agent_id: 'agent-1',
+          agent_type: 'executor',
+          type: 'worker',
+          status: 'running',
+          processed_messages: 5,
+          mailbox_depth: 0,
+          assigned_node: 'node-1'
+        }
+      ]
+    };
+
+    (fetchJobDetails as any).mockResolvedValue(mockDetails);
+    (fetchJobEvents as any).mockResolvedValue([]);
+    vi.mocked(fetchJobAgentGraph).mockRejectedValue(new Error('Not Found'));
+
+    renderWithRouter(<JobDetails />);
+
+    await waitFor(() => {
+      expect(screen.getByText('test-job-1')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Agents' }));
+    expect(screen.getByText('agent-1')).toBeInTheDocument();
+  });
+
   it('pauses a running job', async () => {
     const mockDetails = {
       job: {

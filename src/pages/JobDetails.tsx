@@ -92,12 +92,40 @@ export default function JobDetails() {
   const load = useCallback(async () => {
     if (!id) return;
     try {
-      const [d, e, g] = await Promise.all([fetchJobDetails(id), fetchJobEvents(id), fetchJobAgentGraph(id)]);
+      const [d, e, g] = await Promise.all([
+        fetchJobDetails(id),
+        fetchJobEvents(id).catch((err) => {
+          console.error('Failed to load job events', err);
+          return [] as JobEvent[];
+        }),
+        fetchJobAgentGraph(id).catch((err) => {
+          console.error('Failed to load job agent graph', err);
+          return {
+            job_id: id,
+            graph_id: null,
+            status: 'unknown',
+            nodes: [],
+            edges: [],
+            stats: { agent_count: 0, edge_count: 0, message_count: 0, event_count: 0 },
+          } satisfies AgentGraph;
+        }),
+      ]);
       setDetails(d);
       setEvents(e);
       setGraph(g);
 
-      const rawNodes = g.nodes.map(agent => ({
+      const graphNodes = g.nodes.length > 0 ? g.nodes : d.agents.map(agent => ({
+        id: agent.agent_id,
+        label: agent.agent_id,
+        agent_type: agent.agent_type,
+        type: agent.type,
+        assigned_node: agent.assigned_node,
+        status: agent.status,
+        processed_messages: agent.processed_messages,
+        mailbox_depth: agent.mailbox_depth,
+      })).filter(agent => agent.id);
+
+      const rawNodes = graphNodes.map(agent => ({
         id: agent.id,
         position: { x: 0, y: 0 },
         data: { 
@@ -119,10 +147,14 @@ export default function JobDetails() {
         id: edge.id,
         source: edge.source,
         target: edge.target,
-        label: edge.count > 0 ? `${edge.message_type} (${edge.count})` : edge.message_type,
+        label: edge.count > 0 ? `${edge.message_type} (${edge.count})` : `${edge.message_type} (possible)`,
         animated: g.status === 'running',
         type: 'smoothstep',
-        style: { stroke: edge.count > 0 ? '#171717' : '#737373', strokeWidth: edge.count > 1 ? 2 : 1.5 },
+        style: {
+          stroke: edge.count > 0 ? '#171717' : '#737373',
+          strokeWidth: edge.count > 1 ? 2 : 1.5,
+          strokeDasharray: edge.count > 0 ? undefined : '6 4',
+        },
         labelStyle: { fill: '#525252', fontSize: 11, fontWeight: 600 },
         labelBgStyle: { fill: '#ffffff', fillOpacity: 0.9 },
       } satisfies Edge));
@@ -220,7 +252,7 @@ export default function JobDetails() {
         <div className="grid grid-cols-3 gap-3">
           <div className="bg-white rounded-lg border border-neutral-200 p-4 shadow-sm">
             <Network className="w-4 h-4 text-neutral-400 mb-3" />
-            <div className="text-2xl font-semibold text-neutral-950">{graph?.stats.agent_count ?? details.agents.length}</div>
+            <div className="text-2xl font-semibold text-neutral-950">{graph?.stats.agent_count || details.agents.length}</div>
             <div className="text-xs font-medium text-neutral-500">Agents</div>
           </div>
           <div className="bg-white rounded-lg border border-neutral-200 p-4 shadow-sm">
