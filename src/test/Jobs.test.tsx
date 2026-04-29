@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { BrowserRouter } from 'react-router-dom';
 import Jobs from '../pages/Jobs';
-import { cancelJob, fetchJobs, pauseJob } from '../api';
+import { cancelJob, clearJobs, fetchJobs, pauseJob } from '../api';
 
 vi.mock('../api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../api')>();
@@ -11,6 +11,7 @@ vi.mock('../api', async (importOriginal) => {
     fetchJobs: vi.fn(),
     pauseJob: vi.fn(),
     cancelJob: vi.fn(),
+    clearJobs: vi.fn(),
   };
 });
 
@@ -151,6 +152,37 @@ describe('Jobs Component', () => {
     await waitFor(() => {
       expect(cancelJob).toHaveBeenCalledWith('job-1');
       expect(cancelJob).toHaveBeenCalledWith('job-2');
+    });
+  });
+
+  it('clears non-running jobs and refreshes the list', async () => {
+    const mockJobs = [
+      {
+        job_id: 'job-1',
+        graph_id: 'graph-1',
+        status: 'completed',
+        submitted_at: '2026-04-16T12:00:00Z',
+        active_executors: 0,
+        executor_count: 0
+      }
+    ];
+
+    (fetchJobs as any)
+      .mockResolvedValueOnce(mockJobs)
+      .mockResolvedValueOnce([]);
+    (clearJobs as any).mockResolvedValue({ cleared_count: 1 });
+
+    renderWithRouter(<Jobs />);
+
+    await waitFor(() => {
+      expect(screen.getByText('job-1')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+
+    await waitFor(() => {
+      expect(clearJobs).toHaveBeenCalledOnce();
+      expect(screen.getByText('No jobs found.')).toBeInTheDocument();
     });
   });
 });

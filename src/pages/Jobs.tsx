@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
-import { AlertCircle, Ban, CheckCircle, Clock, Eye, PauseCircle, PlayCircle, XCircle } from 'lucide-react';
-import { cancelJob, fetchJobs, isJobDaemon, pauseJob } from '../api';
+import { AlertCircle, Ban, CheckCircle, Clock, Eye, PauseCircle, PlayCircle, Trash2, XCircle } from 'lucide-react';
+import { cancelJob, clearJobs, fetchJobs, isJobDaemon, pauseJob } from '../api';
 import type { Job } from '../api';
 
 const StatusIcon = ({ status }: { status: string }) => {
@@ -20,6 +20,7 @@ export default function Jobs() {
   const [loading, setLoading] = useState(true);
   const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set());
   const [bulkAction, setBulkAction] = useState<'pause' | 'cancel' | null>(null);
+  const [isClearing, setIsClearing] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -86,6 +87,19 @@ export default function Jobs() {
     }
   };
 
+  const handleClearJobs = async () => {
+    try {
+      setIsClearing(true);
+      await clearJobs();
+      setSelectedJobIds(new Set());
+      await refreshJobs();
+    } catch (e) {
+      console.error('Failed to clear non-running jobs', e);
+    } finally {
+      setIsClearing(false);
+    }
+  };
+
   const selectedCount = selectedJobIds.size;
   const hasSelection = selectedCount > 0;
   const allSelected = jobs.length > 0 && selectedCount === jobs.length;
@@ -115,6 +129,15 @@ export default function Jobs() {
           >
             <Ban className="h-4 w-4" />
             {bulkAction === 'cancel' ? 'Cancelling...' : `Cancel${selectedCount > 0 ? ` (${selectedCount})` : ''}`}
+          </button>
+          <button
+            type="button"
+            disabled={isClearing || bulkAction !== null}
+            onClick={handleClearJobs}
+            className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-neutral-200 bg-white px-3 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <Trash2 className="h-4 w-4" />
+            {isClearing ? 'Clearing...' : 'Clear'}
           </button>
           <Link
             to="/run"

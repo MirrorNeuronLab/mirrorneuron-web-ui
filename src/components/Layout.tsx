@@ -1,6 +1,7 @@
 import { NavLink, Outlet } from 'react-router-dom';
-import { Circle, LayoutDashboard, List, Play, Plus } from 'lucide-react';
+import { LayoutDashboard, List, Play, Plus } from 'lucide-react';
 import clsx from 'clsx';
+import mnLogo from '../assets/mn-logo.svg';
 
 const navItems = [
   { name: 'Dashboard', path: '/', icon: LayoutDashboard },
@@ -13,7 +14,7 @@ export default function Layout() {
     <div className="flex h-screen bg-white text-neutral-950">
       <aside className="w-72 bg-neutral-50 border-r border-neutral-200 flex flex-col">
         <div className="h-16 flex items-center px-6 border-b border-neutral-200">
-          <Circle className="w-5 h-5 mr-3" />
+          <img src={mnLogo} alt="" className="mr-3 h-8 w-8 shrink-0" />
           <span className="text-lg font-semibold tracking-tight">MirrorNeuron</span>
         </div>
         <div className="px-6 py-4">
