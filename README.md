@@ -23,7 +23,7 @@ The Web UI runs on the same machine as your MirrorNeuron instance.
    ```bash
    npm install
    ```
-3. Start the Web UI in development mode (which proxies `/api` to `localhost:4001`):
+3. Start the Web UI in development mode (which proxies `/api` to `localhost:4001` by default):
    ```bash
    npm run dev
    ```
@@ -36,3 +36,5 @@ Vite is configured to expose `MIRROR_NEURON_` vars to the browser build:
 
 - `MIRROR_NEURON_WEB_API_BASE_URL`: REST API base URL, default `/api/v1`.
 - `MIRROR_NEURON_WEB_API_TOKEN`: optional bearer token for protected API instances.
+- `MIRROR_NEURON_WEB_UI_HOST`: Vite dev server bind host, default `localhost`.
+- `MIRROR_NEURON_API_HOST`, `MIRROR_NEURON_API_PORT`: Vite proxy target, default `localhost:4001`.
