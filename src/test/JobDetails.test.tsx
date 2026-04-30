@@ -19,11 +19,12 @@ vi.mock('../api', async (importOriginal) => {
 
 // Mock ReactFlow because we can't test canvas elements easily in jsdom
 vi.mock('@xyflow/react', () => ({
-  ReactFlow: () => <div data-testid="react-flow-mock">Graph View</div>,
+  ReactFlow: ({ children }: { children?: React.ReactNode }) => <div data-testid="react-flow-mock">Graph View{children}</div>,
   MiniMap: () => null,
   Controls: () => null,
   Background: () => null,
-  Position: { Top: 'top', Bottom: 'bottom' },
+  Panel: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  Position: { Top: 'top', Bottom: 'bottom', Left: 'left', Right: 'right' },
   useNodesState: () => [[], vi.fn(), vi.fn()],
   useEdgesState: () => [[], vi.fn(), vi.fn()],
 }));
@@ -104,6 +105,7 @@ describe('JobDetails Component', () => {
     await waitFor(() => {
       expect(screen.getByText('test-job-1')).toBeInTheDocument();
     });
+    expect(screen.queryByText(/Executors:/i)).not.toBeInTheDocument();
 
     // Default tab is graph
     expect(screen.getByTestId('react-flow-mock')).toBeInTheDocument();
