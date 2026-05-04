@@ -1,10 +1,10 @@
 import axios from 'axios';
 
 const env = import.meta.env as ImportMetaEnv & Record<string, string>;
-const token = env.MIRROR_NEURON_WEB_API_TOKEN || '';
+const token = env.MN_WEB_API_TOKEN || '';
 
 const api = axios.create({
-  baseURL: env.MIRROR_NEURON_WEB_API_BASE_URL || '/api/v1',
+  baseURL: env.MN_WEB_API_BASE_URL || '/api/v1',
 });
 
 if (token) {
