@@ -15,8 +15,8 @@ describe('Dashboard Component', () => {
 
   it('renders skeleton loading state initially', () => {
     // Return a promise that doesn't resolve immediately to keep it in loading state
-    (fetchSystemSummary as any).mockReturnValue(new Promise(() => {}));
-    (fetchJobs as any).mockReturnValue(new Promise(() => {}));
+    vi.mocked(fetchSystemSummary).mockReturnValue(new Promise(() => {}));
+    vi.mocked(fetchJobs).mockReturnValue(new Promise(() => {}));
     
     const { container } = render(<Dashboard />);
     
@@ -42,10 +42,10 @@ describe('Dashboard Component', () => {
       ]
     };
 
-    (fetchSystemSummary as any).mockResolvedValue(mockData);
-    (fetchJobs as any).mockResolvedValue([
-      { job_id: 'job1', status: 'running', active_executors: 1, executor_count: 2 },
-      { job_id: 'job2', status: 'pending', active_executors: 0, executor_count: 1 },
+    vi.mocked(fetchSystemSummary).mockResolvedValue(mockData);
+    vi.mocked(fetchJobs).mockResolvedValue([
+      { job_id: 'job1', graph_id: 'graph-1', status: 'running', active_executors: 1, executor_count: 2 },
+      { job_id: 'job2', graph_id: 'graph-2', status: 'pending', active_executors: 0, executor_count: 1 },
     ]);
 
     render(<Dashboard />);

@@ -54,8 +54,8 @@ describe('JobDetails Component', () => {
   });
 
   it('renders loading state initially', () => {
-    (fetchJobDetails as any).mockReturnValue(new Promise(() => {}));
-    (fetchJobEvents as any).mockReturnValue(new Promise(() => {}));
+    vi.mocked(fetchJobDetails).mockReturnValue(new Promise(() => {}));
+    vi.mocked(fetchJobEvents).mockReturnValue(new Promise(() => {}));
     vi.mocked(fetchJobAgentGraph).mockReturnValue(new Promise(() => {}));
     
     renderWithRouter(<JobDetails />);
@@ -83,15 +83,17 @@ describe('JobDetails Component', () => {
           mailbox_depth: 0,
           assigned_node: 'node-1'
         }
-      ]
+      ],
+      sandboxes: [],
+      recent_events: [],
     };
 
     const mockEvents = [
       { timestamp: '2026-04-16T12:00:01Z', type: 'agent_started', payload: {} }
     ];
 
-    (fetchJobDetails as any).mockResolvedValue(mockDetails);
-    (fetchJobEvents as any).mockResolvedValue(mockEvents);
+    vi.mocked(fetchJobDetails).mockResolvedValue(mockDetails);
+    vi.mocked(fetchJobEvents).mockResolvedValue(mockEvents);
     vi.mocked(fetchJobAgentGraph).mockResolvedValue({
       job_id: 'test-job-1',
       status: 'running',
@@ -138,11 +140,13 @@ describe('JobDetails Component', () => {
           mailbox_depth: 0,
           assigned_node: 'node-1'
         }
-      ]
+      ],
+      sandboxes: [],
+      recent_events: [],
     };
 
-    (fetchJobDetails as any).mockResolvedValue(mockDetails);
-    (fetchJobEvents as any).mockResolvedValue([]);
+    vi.mocked(fetchJobDetails).mockResolvedValue(mockDetails);
+    vi.mocked(fetchJobEvents).mockResolvedValue([]);
     vi.mocked(fetchJobAgentGraph).mockRejectedValue(new Error('Not Found'));
 
     renderWithRouter(<JobDetails />);
@@ -163,12 +167,14 @@ describe('JobDetails Component', () => {
         status: 'running',
         submitted_at: '2026-04-16T12:00:00Z',
       },
-      agents: []
+      agents: [],
+      sandboxes: [],
+      recent_events: [],
     };
 
-    (fetchJobDetails as any).mockResolvedValue(mockDetails);
-    (fetchJobEvents as any).mockResolvedValue([]);
-    (pauseJob as any).mockResolvedValue({ status: 'paused', job_id: 'test-job-1' });
+    vi.mocked(fetchJobDetails).mockResolvedValue(mockDetails);
+    vi.mocked(fetchJobEvents).mockResolvedValue([]);
+    vi.mocked(pauseJob).mockResolvedValue({ status: 'paused', job_id: 'test-job-1' });
 
     renderWithRouter(<JobDetails />);
 
@@ -193,12 +199,14 @@ describe('JobDetails Component', () => {
         status: 'paused',
         submitted_at: '2026-04-16T12:00:00Z',
       },
-      agents: []
+      agents: [],
+      sandboxes: [],
+      recent_events: [],
     };
 
-    (fetchJobDetails as any).mockResolvedValue(mockDetails);
-    (fetchJobEvents as any).mockResolvedValue([]);
-    (resumeJob as any).mockResolvedValue({ status: 'resumed', job_id: 'test-job-1' });
+    vi.mocked(fetchJobDetails).mockResolvedValue(mockDetails);
+    vi.mocked(fetchJobEvents).mockResolvedValue([]);
+    vi.mocked(resumeJob).mockResolvedValue({ status: 'resumed', job_id: 'test-job-1' });
 
     renderWithRouter(<JobDetails />);
 
@@ -223,12 +231,14 @@ describe('JobDetails Component', () => {
         status: 'running',
         submitted_at: '2026-04-16T12:00:00Z',
       },
-      agents: []
+      agents: [],
+      sandboxes: [],
+      recent_events: [],
     };
 
-    (fetchJobDetails as any).mockResolvedValue(mockDetails);
-    (fetchJobEvents as any).mockResolvedValue([]);
-    (cancelJob as any).mockResolvedValue({ status: 'cancelled', job_id: 'test-job-1' });
+    vi.mocked(fetchJobDetails).mockResolvedValue(mockDetails);
+    vi.mocked(fetchJobEvents).mockResolvedValue([]);
+    vi.mocked(cancelJob).mockResolvedValue({ status: 'cancelled', job_id: 'test-job-1' });
 
     renderWithRouter(<JobDetails />);
 

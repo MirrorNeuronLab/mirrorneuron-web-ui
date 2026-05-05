@@ -25,7 +25,7 @@ describe('Jobs Component', () => {
   });
 
   it('renders skeleton loading state initially', () => {
-    (fetchJobs as any).mockReturnValue(new Promise(() => {}));
+    vi.mocked(fetchJobs).mockReturnValue(new Promise(() => {}));
     
     const { container } = renderWithRouter(<Jobs />);
     
@@ -33,7 +33,7 @@ describe('Jobs Component', () => {
   });
 
   it('renders "No jobs found" when data is empty', async () => {
-    (fetchJobs as any).mockResolvedValue([]);
+    vi.mocked(fetchJobs).mockResolvedValue([]);
 
     renderWithRouter(<Jobs />);
 
@@ -54,7 +54,7 @@ describe('Jobs Component', () => {
       }
     ];
 
-    (fetchJobs as any).mockResolvedValue(mockJobs);
+    vi.mocked(fetchJobs).mockResolvedValue(mockJobs);
 
     renderWithRouter(<Jobs />);
 
@@ -88,8 +88,8 @@ describe('Jobs Component', () => {
       }
     ];
 
-    (fetchJobs as any).mockResolvedValue(mockJobs);
-    (pauseJob as any).mockResolvedValue({ status: 'paused' });
+    vi.mocked(fetchJobs).mockResolvedValue(mockJobs);
+    vi.mocked(pauseJob).mockResolvedValue({ status: 'paused' });
 
     renderWithRouter(<Jobs />);
 
@@ -136,8 +136,8 @@ describe('Jobs Component', () => {
       }
     ];
 
-    (fetchJobs as any).mockResolvedValue(mockJobs);
-    (cancelJob as any).mockResolvedValue({ status: 'cancelled' });
+    vi.mocked(fetchJobs).mockResolvedValue(mockJobs);
+    vi.mocked(cancelJob).mockResolvedValue({ status: 'cancelled' });
 
     renderWithRouter(<Jobs />);
 
@@ -167,10 +167,10 @@ describe('Jobs Component', () => {
       }
     ];
 
-    (fetchJobs as any)
+    vi.mocked(fetchJobs)
       .mockResolvedValueOnce(mockJobs)
       .mockResolvedValueOnce([]);
-    (clearJobs as any).mockResolvedValue({ cleared_count: 1 });
+    vi.mocked(clearJobs).mockResolvedValue({ cleared_count: 1 });
 
     renderWithRouter(<Jobs />);
 

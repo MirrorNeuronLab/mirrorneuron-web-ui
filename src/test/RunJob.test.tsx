@@ -35,8 +35,8 @@ describe('RunJob Component', () => {
       manifest: { graph_id: 'test_graph' }
     };
     
-    (uploadBundle as any).mockResolvedValue(mockBundleData);
-    (createJob as any).mockResolvedValue({ id: 'new-job-123' });
+    vi.mocked(uploadBundle).mockResolvedValue(mockBundleData);
+    vi.mocked(createJob).mockResolvedValue({ id: 'new-job-123' });
 
     render(<BrowserRouter><RunJob /></BrowserRouter>);
     
@@ -62,7 +62,7 @@ describe('RunJob Component', () => {
   });
 
   it('shows error on upload failure', async () => {
-    (uploadBundle as any).mockRejectedValue(new Error('Invalid bundle'));
+    vi.mocked(uploadBundle).mockRejectedValue(new Error('Invalid bundle'));
 
     render(<BrowserRouter><RunJob /></BrowserRouter>);
     

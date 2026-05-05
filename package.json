@@ -1,8 +1,19 @@
 {
   "name": "mirrorneuron-web-ui",
-  "private": true,
   "version": "0.0.0",
+  "description": "MirrorNeuron web UI dashboard.",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MirrorNeuronLab/mn-web-ui.git"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

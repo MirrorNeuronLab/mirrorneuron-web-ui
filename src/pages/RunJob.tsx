@@ -3,8 +3,23 @@ import { useNavigate } from 'react-router-dom';
 import { uploadBundle, createJob } from '../api';
 import { Play, UploadCloud, CheckCircle, Loader2 } from 'lucide-react';
 
+type UploadedBundle = {
+  bundle_path: string;
+  manifest: Record<string, unknown> & { graph_id?: string };
+};
+
+type ApiError = {
+  response?: { data?: { error?: string } };
+  message?: string;
+};
+
+const errorMessage = (err: unknown, fallback: string) => {
+  const apiError = err as ApiError;
+  return apiError.response?.data?.error || apiError.message || fallback;
+};
+
 export default function RunJob() {
-  const [bundleData, setBundleData] = useState<{ bundle_path: string, manifest: any } | null>(null);
+  const [bundleData, setBundleData] = useState<UploadedBundle | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [running, setRunning] = useState(false);
@@ -20,8 +35,8 @@ export default function RunJob() {
       try {
         const res = await uploadBundle(selectedFile);
         setBundleData(res);
-      } catch (err: any) {
-        setError(err.response?.data?.error || err.message || 'Failed to upload and validate bundle');
+      } catch (err: unknown) {
+        setError(errorMessage(err, 'Failed to upload and validate bundle'));
       } finally {
         setUploading(false);
       }
@@ -35,8 +50,8 @@ export default function RunJob() {
       setError(null);
       const res = await createJob({ _bundle_path: bundleData.bundle_path });
       navigate(`/jobs/${res.id}`);
-    } catch (err: any) {
-      setError(err.response?.data?.error || err.message || 'Failed to start job');
+    } catch (err: unknown) {
+      setError(errorMessage(err, 'Failed to start job'));
       setRunning(false);
     }
   };
