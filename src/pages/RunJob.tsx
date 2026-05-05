@@ -9,13 +9,23 @@ type UploadedBundle = {
 };
 
 type ApiError = {
-  response?: { data?: { error?: string } };
+  response?: {
+    data?: {
+      error?: string;
+      detail?: string | { error?: string; message?: string };
+    };
+  };
   message?: string;
 };
 
 const errorMessage = (err: unknown, fallback: string) => {
   const apiError = err as ApiError;
-  return apiError.response?.data?.error || apiError.message || fallback;
+  const data = apiError.response?.data;
+  if (data?.error) return data.error;
+  if (typeof data?.detail === 'string') return data.detail;
+  if (data?.detail?.error) return data.detail.error;
+  if (data?.detail?.message) return data.detail.message;
+  return apiError.message || fallback;
 };
 
 export default function RunJob() {

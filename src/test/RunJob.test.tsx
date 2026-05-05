@@ -74,4 +74,56 @@ describe('RunJob Component', () => {
       expect(screen.getByText(/invalid bundle/i)).toBeInTheDocument();
     });
   });
+
+  it('shows backend validation detail when bundle upload is rejected', async () => {
+    vi.mocked(uploadBundle).mockRejectedValue({
+      response: { data: { detail: 'bundle zip must contain manifest.json and payloads/' } },
+      message: 'Request failed with status code 400',
+    });
+
+    render(<BrowserRouter><RunJob /></BrowserRouter>);
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File(['bad'], 'bad.zip', { type: 'application/zip' });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    await waitFor(() => {
+      expect(screen.getByText('bundle zip must contain manifest.json and payloads/')).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/request failed with status code 400/i)).not.toBeInTheDocument();
+  });
+
+  it('shows backend detail message when job submission fails', async () => {
+    vi.mocked(uploadBundle).mockResolvedValue({
+      bundle_path: '/tmp/test_bundle',
+      manifest: { graph_id: 'test_graph' }
+    });
+    vi.mocked(createJob).mockRejectedValue({
+      response: {
+        data: {
+          detail: {
+            message: 'manifest_json or _bundle_path is required',
+          },
+        },
+      },
+      message: 'Request failed with status code 422',
+    });
+
+    render(<BrowserRouter><RunJob /></BrowserRouter>);
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File(['dummy content'], 'bundle.zip', { type: 'application/zip' });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    await waitFor(() => {
+      expect(screen.getByText('Bundle validated successfully')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('Run Job Now'));
+
+    await waitFor(() => {
+      expect(screen.getByText('manifest_json or _bundle_path is required')).toBeInTheDocument();
+    });
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
 });
