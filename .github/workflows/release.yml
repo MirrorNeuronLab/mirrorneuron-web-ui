@@ -354,6 +354,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           TAG_NAME: ${{ needs.build.outputs.tag_name }}
           IS_PRERELEASE: ${{ needs.build.outputs.is_prerelease }}
         run: |
