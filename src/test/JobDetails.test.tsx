@@ -112,6 +112,13 @@ describe('JobDetails Component', () => {
     // Default tab is graph
     expect(screen.getByTestId('react-flow-mock')).toBeInTheDocument();
 
+    fireEvent.click(screen.getByRole('button', { name: 'Show code view' }));
+    expect(screen.getByText(/"job_id": "test-job-1"/)).toBeInTheDocument();
+    expect(screen.getByText(/"id": "agent-1"/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show workflow view' }));
+    expect(screen.getByTestId('react-flow-mock')).toBeInTheDocument();
+
     // Switch to Agents tab
     fireEvent.click(screen.getByRole('button', { name: 'Agents' }));
     expect(screen.getByText('agent-1')).toBeInTheDocument();

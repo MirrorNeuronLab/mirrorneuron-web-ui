@@ -1,15 +1,11 @@
 import { useEffect, useState, useCallback } from 'react';
-import type { ReactNode } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { fetchJobDetails, fetchJobEvents, fetchJobAgentGraph, cancelJob, pauseJob, resumeJob } from '../api';
 import type { AgentGraph, JobDetails as JobDetailsType, JobEvent } from '../api';
 import { format } from 'date-fns';
-import { PlayCircle, CheckCircle, XCircle, Clock, AlertCircle, Ban, PauseCircle, Play, Loader2, Network, RadioTower, MessageSquare, Rows3, Columns3 } from 'lucide-react';
-import { ReactFlow, MiniMap, Controls, Background, Panel, useNodesState, useEdgesState, Position } from '@xyflow/react';
-import type { Edge, Node, ReactFlowInstance } from '@xyflow/react';
-import '@xyflow/react/dist/style.css';
-import dagre from 'dagre';
+import { PlayCircle, CheckCircle, XCircle, Clock, AlertCircle, Ban, PauseCircle, Play, Loader2, Network, RadioTower, MessageSquare } from 'lucide-react';
 import { ConfirmModal } from '../components/ConfirmModal';
+import { WorkflowAgentGraph } from '../components/WorkflowAgentGraph';
 
 const StatusIcon = ({ status }: { status: string }) => {
   switch (status) {
@@ -21,53 +17,6 @@ const StatusIcon = ({ status }: { status: string }) => {
     case 'cancelled': return <Ban className="w-5 h-5 text-neutral-500" />;
     default: return <AlertCircle className="w-5 h-5 text-neutral-400" />;
   }
-};
-
-type AgentNodeData = {
-  label: ReactNode;
-};
-
-type LayoutDirection = 'TB' | 'LR';
-
-const NODE_WIDTH = 240;
-const NODE_HEIGHT = 92;
-
-const getLayoutedElements = (nodes: Node<AgentNodeData>[], edges: Edge[], direction: LayoutDirection = 'TB') => {
-  const dagreGraph = new dagre.graphlib.Graph();
-  dagreGraph.setDefaultEdgeLabel(() => ({}));
-  dagreGraph.setGraph({
-    rankdir: direction,
-    nodesep: 80,
-    ranksep: 130,
-    marginx: 40,
-    marginy: 40,
-  });
-
-  nodes.forEach((node) => {
-    dagreGraph.setNode(node.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
-  });
-
-  edges.forEach((edge) => {
-    dagreGraph.setEdge(edge.source, edge.target);
-  });
-
-  dagre.layout(dagreGraph);
-  const isHorizontal = direction === 'LR';
-
-  const newNodes = nodes.map((node) => {
-    const nodeWithPosition = dagreGraph.node(node.id);
-    return {
-      ...node,
-      targetPosition: isHorizontal ? Position.Left : Position.Top,
-      sourcePosition: isHorizontal ? Position.Right : Position.Bottom,
-      position: {
-        x: nodeWithPosition.x - NODE_WIDTH / 2,
-        y: nodeWithPosition.y - NODE_HEIGHT / 2,
-      },
-    };
-  });
-
-  return { nodes: newNodes, edges };
 };
 
 const statusClass = (status: string) => {
@@ -89,17 +38,12 @@ export default function JobDetails() {
   const [events, setEvents] = useState<JobEvent[]>([]);
   const [graph, setGraph] = useState<AgentGraph | null>(null);
   const [activeTab, setActiveTab] = useState<'graph' | 'agents' | 'logs'>('graph');
-  const [layoutDirection, setLayoutDirection] = useState<LayoutDirection>('LR');
   
   const [isCancelling, setIsCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [isPausing, setIsPausing] = useState(false);
   const [isResuming, setIsResuming] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
-
-  const [nodes, setNodes, onNodesChange] = useNodesState<Node<AgentNodeData>>([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
-  const [flowInstance, setFlowInstance] = useState<ReactFlowInstance<Node<AgentNodeData>, Edge> | null>(null);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -126,63 +70,10 @@ export default function JobDetails() {
       setEvents(e);
       setGraph(g);
 
-      const graphNodes = g.nodes.length > 0 ? g.nodes : d.agents.map(agent => ({
-        id: agent.agent_id,
-        label: agent.agent_id,
-        agent_type: agent.agent_type,
-        type: agent.type,
-        assigned_node: agent.assigned_node,
-        status: agent.status,
-        processed_messages: agent.processed_messages,
-        mailbox_depth: agent.mailbox_depth,
-      })).filter(agent => agent.id);
-
-      const rawNodes = graphNodes.map(agent => ({
-        id: agent.id,
-        position: { x: 0, y: 0 },
-        data: { 
-          label: (
-            <div className="flex flex-col gap-1">
-              <div className="truncate text-sm font-semibold text-neutral-950">{agent.label || agent.id}</div>
-              <div className="flex items-center justify-between gap-3 text-xs text-neutral-500">
-                <span className="truncate">{agent.agent_type || 'unknown'}</span>
-                <span className={`rounded-full border px-2 py-0.5 capitalize ${statusClass(agent.status)}`}>{agent.status || 'unknown'}</span>
-              </div>
-              <div className="text-xs text-neutral-400">{agent.processed_messages ?? 0} processed · {agent.mailbox_depth ?? 0} queued</div>
-            </div>
-          )
-        },
-        style: { border: '1px solid #d4d4d4', borderRadius: 8, padding: 10, background: 'white', width: NODE_WIDTH, minHeight: NODE_HEIGHT, boxShadow: '0 1px 2px rgba(15, 23, 42, 0.06)' },
-      } satisfies Node<AgentNodeData>));
-
-      const nodeIds = new Set(rawNodes.map((node) => node.id));
-      const rawEdges = g.edges.filter(edge => nodeIds.has(edge.source) && nodeIds.has(edge.target)).map(edge => ({
-        id: edge.id,
-        source: edge.source,
-        target: edge.target,
-        label: edge.count > 0 ? `${edge.message_type} (${edge.count})` : `${edge.message_type} (possible)`,
-        animated: g.status === 'running',
-        type: 'smoothstep',
-        style: {
-          stroke: edge.count > 0 ? '#171717' : '#737373',
-          strokeWidth: edge.count > 1 ? 2 : 1.5,
-          strokeDasharray: edge.count > 0 ? undefined : '6 4',
-        },
-        labelStyle: { fill: '#525252', fontSize: 11, fontWeight: 600 },
-        labelBgStyle: { fill: '#ffffff', fillOpacity: 0.9 },
-      } satisfies Edge));
-
-      const layouted = getLayoutedElements(rawNodes, rawEdges, layoutDirection);
-      setNodes(layouted.nodes);
-      setEdges(layouted.edges);
-      window.requestAnimationFrame(() => {
-        flowInstance?.fitView({ padding: 0.2, duration: 300 });
-      });
-
     } catch (err) {
       console.error('Failed to load job details', err);
     }
-  }, [id, layoutDirection, flowInstance, setNodes, setEdges]);
+  }, [id]);
 
   useEffect(() => {
     load();
@@ -292,39 +183,13 @@ export default function JobDetails() {
 
         <div className="flex-1 relative">
           {activeTab === 'graph' && (
-            <ReactFlow
-              nodes={nodes}
-              edges={edges}
-              onNodesChange={onNodesChange}
-              onEdgesChange={onEdgesChange}
-              onInit={setFlowInstance}
-              fitView
-              fitViewOptions={{ padding: 0.2 }}
-            >
-              <Panel position="top-left" className="flex overflow-hidden rounded-md border border-neutral-200 bg-white shadow-sm">
-                <button
-                  type="button"
-                  aria-label="Use left to right graph layout"
-                  title="Left to right layout"
-                  onClick={() => setLayoutDirection('LR')}
-                  className={`flex h-9 w-9 items-center justify-center border-r border-neutral-200 ${layoutDirection === 'LR' ? 'bg-neutral-950 text-white' : 'bg-white text-neutral-600 hover:bg-neutral-50'}`}
-                >
-                  <Columns3 className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  aria-label="Use top to bottom graph layout"
-                  title="Top to bottom layout"
-                  onClick={() => setLayoutDirection('TB')}
-                  className={`flex h-9 w-9 items-center justify-center ${layoutDirection === 'TB' ? 'bg-neutral-950 text-white' : 'bg-white text-neutral-600 hover:bg-neutral-50'}`}
-                >
-                  <Rows3 className="h-4 w-4" />
-                </button>
-              </Panel>
-              <Background color="#ccc" gap={16} />
-              <MiniMap />
-              <Controls />
-            </ReactFlow>
+            <WorkflowAgentGraph
+              graph={graph}
+              agents={details.agents || []}
+              fallbackJobId={details.job.job_id}
+              fallbackGraphId={details.job.graph_id}
+              fallbackStatus={details.job.status}
+            />
           )}
 
           {activeTab === 'agents' && (
