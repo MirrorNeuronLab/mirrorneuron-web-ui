@@ -96,12 +96,59 @@ export const SystemSummarySchema = z.object({
   }).passthrough()).optional().default([]),
 }).passthrough();
 
+export const RunUiComponentSchema = z.object({
+  type: z.string().optional().default('events'),
+  label: z.string().optional(),
+  source: z.string().optional(),
+  event_types: z.array(z.string()).optional().default([]),
+  max_events: z.number().optional(),
+}).passthrough();
+
+export const RunUiDefinitionSchema = z.object({
+  schema_version: z.number().optional().default(1),
+  adapter: z.string().optional().default('gradio'),
+  kind: z.string().optional().default('output'),
+  title: z.string().optional().default('Blueprint Run'),
+  run_id: z.string().optional(),
+  blueprint_id: z.string().optional(),
+  events_path: z.string().optional(),
+  refresh_seconds: z.number().optional().default(2),
+  components: z.array(RunUiComponentSchema).optional().default([]),
+  metadata: z.record(z.string(), z.unknown()).optional().default({}),
+}).passthrough();
+
+export const WebUiHandleSchema = z.object({
+  adapter: z.string().optional().default('gradio'),
+  kind: z.string().optional().default('output'),
+  url: z.string().optional().default(''),
+  title: z.string().optional().default('Blueprint Run'),
+  status: z.string().optional().default('unknown'),
+  path: z.string().optional(),
+  metadata: z.record(z.string(), z.unknown()).optional().default({}),
+}).passthrough();
+
+const DefaultWebUiHandle = WebUiHandleSchema.parse({});
+
+export const RunUiResponseSchema = z.object({
+  run_id: z.string(),
+  run_dir: z.string().optional(),
+  ui: RunUiDefinitionSchema,
+  web_ui: WebUiHandleSchema.optional().default(DefaultWebUiHandle),
+  job: z.record(z.string(), z.unknown()).optional().default({}),
+  run: z.record(z.string(), z.unknown()).optional().default({}),
+  events: z.array(JobEventSchema).optional().default([]),
+}).passthrough();
+
 export type Agent = z.infer<typeof AgentSchema>;
 export type JobEvent = z.infer<typeof JobEventSchema>;
 export type Job = z.infer<typeof JobSchema>;
 export type JobDetails = z.infer<typeof JobDetailsSchema>;
 export type AgentGraph = z.infer<typeof AgentGraphSchema>;
 export type SystemSummary = z.infer<typeof SystemSummarySchema>;
+export type RunUiComponent = z.infer<typeof RunUiComponentSchema>;
+export type RunUiDefinition = z.infer<typeof RunUiDefinitionSchema>;
+export type WebUiHandle = z.infer<typeof WebUiHandleSchema>;
+export type RunUiResponse = z.infer<typeof RunUiResponseSchema>;
 
 export const isJobDaemon = (job: Partial<Job> | null | undefined, summary?: { daemon?: boolean }): boolean => {
   if (summary?.daemon === true || job?.daemon === true) return true;
@@ -151,6 +198,14 @@ export const fetchJobAgentGraph = (id: string) => api.get(`/jobs/${id}/agent-gra
   if (!result.success) {
     console.error(`fetchJobAgentGraph(${id}) validation failed:`, result.error);
     return AgentGraphSchema.parse({ job_id: id, nodes: [], edges: [] });
+  }
+  return result.data;
+});
+export const fetchRunUi = (id: string) => api.get(`/runs/${encodeURIComponent(id)}/ui`).then(r => {
+  const result = RunUiResponseSchema.safeParse(r.data);
+  if (!result.success) {
+    console.error(`fetchRunUi(${id}) validation failed:`, result.error);
+    return RunUiResponseSchema.parse({ run_id: id, ui: { run_id: id, title: 'Blueprint Run' } });
   }
   return result.data;
 });

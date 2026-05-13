@@ -4,6 +4,7 @@ import Dashboard from './pages/Dashboard';
 import Jobs from './pages/Jobs';
 import JobDetails from './pages/JobDetails';
 import RunJob from './pages/RunJob';
+import RunUi from './pages/RunUi';
 
 function App() {
   return (
@@ -12,6 +13,7 @@ function App() {
         <Route index element={<Dashboard />} />
         <Route path="jobs" element={<Jobs />} />
         <Route path="jobs/:id" element={<JobDetails />} />
+        <Route path="runs/:runId/ui" element={<RunUi />} />
         <Route path="run" element={<RunJob />} />
       </Route>
     </Routes>
