@@ -76,9 +76,12 @@ export default function JobDetails() {
   }, [id]);
 
   useEffect(() => {
-    load();
+    const initialLoad = setTimeout(load, 0);
     const timer = setInterval(load, 3000);
-    return () => clearInterval(timer);
+    return () => {
+      clearTimeout(initialLoad);
+      clearInterval(timer);
+    };
   }, [load]);
 
   if (!details || !details.job) return <div className="p-8">Loading or Invalid Job...</div>;
